@@ -315,6 +315,7 @@ router.post(
             } catch (blockchainErr) {
                 console.error("❌ Blockchain operation failed:", blockchainErr.message);
                 console.error("Error stack:", blockchainErr.stack);
+                console.error("Full error:", JSON.stringify(blockchainErr, null, 2));
                 // If blockchain fails, still allow the operation but log warning
                 console.warn("Proceeding without blockchain registration due to:", blockchainErr.message);
 

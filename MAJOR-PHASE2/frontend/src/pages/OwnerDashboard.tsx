@@ -1491,30 +1491,78 @@ export default function OwnerDashboard() {
       )}
 
       {showForm && (
-        <div className="card">
-          <h3>Sell Vehicle</h3>
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label>Buyer Email</label>
-              <input
-                type="email"
-                name="buyerEmail"
-                value={formData.buyerEmail}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <button type="submit" className="btn btn-success">
-              Submit Transfer Request
-            </button>
-            <button
-              type="button"
-              className="btn btn-danger"
-              onClick={() => setShowForm(false)}
-            >
-              Cancel
-            </button>
-          </form>
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              maxWidth: "500px",
+              width: "90%",
+              maxHeight: "80vh",
+              overflowY: "auto",
+              backgroundColor: "white",
+              padding: "30px",
+              borderRadius: "8px",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
+            }}
+          >
+            <h3 style={{ marginBottom: "20px", color: "#2c3e50" }}>
+              💰 Sell Your Vehicle
+            </h3>
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label>Vehicle ID: {formData.vehicleId}</label>
+                <p style={{ color: "#666", fontSize: "0.9rem" }}>
+                  {vehicles.find((v) => v._id === formData.vehicleId)?.make}{" "}
+                  {vehicles.find((v) => v._id === formData.vehicleId)?.model} (
+                  {vehicles.find((v) => v._id === formData.vehicleId)?.regNumber
+                    || "Not Assigned"}
+                  )
+                </p>
+              </div>
+              <div className="form-group">
+                <label>Buyer Email *</label>
+                <input
+                  type="email"
+                  name="buyerEmail"
+                  value={formData.buyerEmail}
+                  onChange={handleChange}
+                  placeholder="Enter buyer's email address"
+                  required
+                />
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "10px",
+                  marginTop: "20px",
+                }}
+              >
+                <button type="submit" className="btn btn-success">
+                  ✓ Submit Transfer Request
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={() => setShowForm(false)}
+                >
+                  ✕ Cancel
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
       <footer className="dashboard-footer">

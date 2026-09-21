@@ -56,7 +56,7 @@ export default function RTOSetupPage() {
     try {
       await api.put("/auth/update-rto-details", { rtoDetails: formData });
       alert("RTO details setup completed successfully!");
-      navigate("/rto-dashboard");
+      navigate("/rto");
     } catch (err: unknown) {
       console.error(err);
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -73,7 +73,7 @@ export default function RTOSetupPage() {
 
   // If already setup, redirect to dashboard
   if (user.rtoDetails?.stateCode) {
-    navigate("/rto-dashboard");
+    navigate("/rto");
     return null;
   }
 
