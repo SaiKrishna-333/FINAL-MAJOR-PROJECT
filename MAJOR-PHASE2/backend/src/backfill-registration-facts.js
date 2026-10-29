@@ -109,11 +109,13 @@ const run = async () => {
         // not carry every field, and saving it could clear fields this pass is
         // not meant to touch.
         if (!DRY_RUN) {
-            await Vehicle.updateOne({ _id: vehicle._id }, { $set: {
-                registrationDate: vehicle.registrationDate,
-                issuedByOffice: vehicle.issuedByOffice || null,
-                issuedByOfficer: vehicle.issuedByOfficer || null,
-            } });
+            await Vehicle.updateOne({ _id: vehicle._id }, {
+                $set: {
+                    registrationDate: vehicle.registrationDate,
+                    issuedByOffice: vehicle.issuedByOffice || null,
+                    issuedByOfficer: vehicle.issuedByOfficer || null,
+                }
+            });
         }
     }
 
