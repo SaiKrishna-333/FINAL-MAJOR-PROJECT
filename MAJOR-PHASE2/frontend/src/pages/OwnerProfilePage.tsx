@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/useAuth";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
+import DigitalIdCard from "../components/DigitalIdCard";
+import DashboardLayout from "../components/DashboardLayout";
+import { STATES, stateName, resolveStateCode } from "../lib/states";
 
 export default function OwnerProfilePage() {
   const { user, api } = useAuth();
@@ -22,20 +25,6 @@ export default function OwnerProfilePage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const states = [
-    { code: "AP", name: "Andhra Pradesh" },
-    { code: "TS", name: "Telangana" },
-    { code: "KA", name: "Karnataka" },
-    { code: "TN", name: "Tamil Nadu" },
-    { code: "MH", name: "Maharashtra" },
-    { code: "DL", name: "Delhi" },
-    { code: "GJ", name: "Gujarat" },
-    { code: "RJ", name: "Rajasthan" },
-    { code: "UP", name: "Uttar Pradesh" },
-    { code: "MP", name: "Madhya Pradesh" },
-    { code: "KL", name: "Kerala" },
-  ];
-
   const loadProfile = useCallback(async () => {
     if (user) {
       setFormData({
@@ -43,7 +32,7 @@ export default function OwnerProfilePage() {
         email: user.email || "",
         phone: user.phone || "",
         address: user.address || "",
-        state: user.state || "",
+        state: resolveStateCode(user.state) || "",
         district: user.district || "",
         aadhaarNumber: user.aadhaarNumber || "",
         dlNumber: user.dlNumber || "",
@@ -77,7 +66,7 @@ export default function OwnerProfilePage() {
       ...prev,
       [name]: value,
       ...(name === "state" && {
-        stateName: states.find((s) => s.code === value)?.name || "",
+        stateName: stateName(value),
       }),
     }));
   };
@@ -115,359 +104,363 @@ export default function OwnerProfilePage() {
         district: formData.district,
       });
 
-      setMessage("✅ Profile updated successfully!");
+      setMessage("Profile updated successfully.");
       setTimeout(() => setMessage(""), 3000);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      setMessage("❌ Error: " + errorMessage);
+      setMessage("Error: " + errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   if (!user || user.role !== "owner") {
-    navigate("/login");
-    return null;
+    // <Navigate> rather than navigate() in the render phase, which React Router drops.
+    return <Navigate to="/login" replace />;
   }
 
   return (
-    <div className="container">
-      <div className="navbar">
-        <div className="container">
-          <h2>BioChain RTO - My Profile</h2>
-          <div className="nav-links">
-            <button
-              className="btn btn-primary"
-              onClick={() => navigate("/owner")}
-            >
-              ← Back to Dashboard
-            </button>
-          </div>
-        </div>
-      </div>
+    <DashboardLayout
+      title="My Profile"
+      subtitle="Your details and Digital ID Card"
+    >
+      <div className="container">
+        <DigitalIdCard />
 
-      <div className="card" style={{ maxWidth: "900px", margin: "2rem auto" }}>
-        <h3>👤 Vehicle Owner Profile</h3>
+        <div
+          className="card"
+          style={{ maxWidth: "900px", margin: "2rem auto" }}
+        >
+          <h3>Vehicle Owner Profile</h3>
 
-        {message && (
-          <div
-            style={{
-              padding: "1rem",
-              marginBottom: "1.5rem",
-              borderRadius: "8px",
-              background: message.includes("✅") ? "#e8f5e9" : "#ffebee",
-              color: message.includes("✅") ? "#2e7d32" : "#c62828",
-              border: `1px solid ${message.includes("✅") ? "#a5d6a7" : "#ef9a9a"}`,
-            }}
-          >
-            {message}
-          </div>
-        )}
-
-        {/* Profile Photo Section */}
-        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <div
-            style={{
-              width: "120px",
-              height: "120px",
-              borderRadius: "50%",
-              margin: "0 auto 1rem",
-              overflow: "hidden",
-              border: "4px solid #667eea",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: profilePhotoUrl
-                ? "transparent"
-                : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            }}
-          >
-            {profilePhotoUrl ? (
-              <img
-                src={profilePhotoUrl}
-                alt="Profile"
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
-            ) : (
-              <span
-                style={{ color: "#fff", fontSize: "3rem", fontWeight: "bold" }}
-              >
-                {formData.name?.charAt(0).toUpperCase()}
-              </span>
-            )}
-          </div>
-          <label
-            style={{ cursor: "pointer", color: "#667eea", fontWeight: "bold" }}
-          >
-            📷 Change Profile Photo
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoChange}
-              style={{ display: "none" }}
-            />
-          </label>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "1.5rem",
-            }}
-          >
-            {/* EDITABLE FIELDS */}
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "bold",
-                }}
-              >
-                Full Name *
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #ddd",
-                  borderRadius: "6px",
-                }}
-              />
-            </div>
-
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "bold",
-                }}
-              >
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="Enter phone number"
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #ddd",
-                  borderRadius: "6px",
-                }}
-              />
-            </div>
-
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "bold",
-                }}
-              >
-                Address
-              </label>
-              <textarea
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                rows={3}
-                placeholder="Enter your complete address"
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #ddd",
-                  borderRadius: "6px",
-                  resize: "vertical",
-                }}
-              />
-            </div>
-
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "bold",
-                }}
-              >
-                State
-              </label>
-              <select
-                name="state"
-                value={formData.state}
-                onChange={handleChange}
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #ddd",
-                  borderRadius: "6px",
-                }}
-              >
-                <option value="">Select State</option>
-                {states.map((state) => (
-                  <option key={state.code} value={state.code}>
-                    {state.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "bold",
-                }}
-              >
-                District
-              </label>
-              <input
-                type="text"
-                name="district"
-                value={formData.district}
-                onChange={handleChange}
-                placeholder="e.g., Bangalore Urban"
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #ddd",
-                  borderRadius: "6px",
-                }}
-              />
-            </div>
-
-            {/* LOCKED FIELDS - Cannot Edit */}
+          {message && (
             <div
               style={{
-                gridColumn: "1 / -1",
-                marginTop: "1rem",
-                paddingTop: "1rem",
-                borderTop: "2px solid #eee",
+                padding: "1rem",
+                marginBottom: "1.5rem",
+                borderRadius: "8px",
+                background: message.includes("") ? "#e8f5e9" : "#ffebee",
+                color: message.includes("") ? "#2e7d32" : "#c62828",
+                border: `1px solid ${message.includes("") ? "#a5d6a7" : "#ef9a9a"}`,
               }}
             >
-              <h4 style={{ color: "#666", marginBottom: "1rem" }}>
-                🔒 Permanent Details (Cannot be changed)
-              </h4>
+              {message}
             </div>
+          )}
 
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "bold",
-                  color: "#999",
-                }}
-              >
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                disabled
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #eee",
-                  borderRadius: "6px",
-                  background: "#f5f5f5",
-                  color: "#999",
-                }}
-              />
-              <small style={{ color: "#999" }}>Set during registration</small>
+          {/* Profile Photo Section */}
+          <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+            <div
+              style={{
+                width: "120px",
+                height: "120px",
+                borderRadius: "50%",
+                margin: "0 auto 1rem",
+                overflow: "hidden",
+                border: "4px solid #1e5aa8",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: profilePhotoUrl
+                  ? "transparent"
+                  : "linear-gradient(135deg, #1e5aa8 0%, #16437e 100%)",
+              }}
+            >
+              {profilePhotoUrl ? (
+                <img
+                  src={profilePhotoUrl}
+                  alt="Profile"
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              ) : (
+                <span
+                  style={{
+                    color: "#fff",
+                    fontSize: "3rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {formData.name?.charAt(0).toUpperCase()}
+                </span>
+              )}
             </div>
-
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "bold",
-                  color: "#999",
-                }}
-              >
-                Aadhaar Number
-              </label>
+            <label
+              style={{
+                cursor: "pointer",
+                color: "#1e5aa8",
+                fontWeight: "bold",
+              }}
+            >
+              Change Profile Photo
               <input
-                type="text"
-                value={formData.aadhaarNumber}
-                disabled
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #eee",
-                  borderRadius: "6px",
-                  background: "#f5f5f5",
-                  color: "#999",
-                }}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoChange}
+                style={{ display: "none" }}
               />
-              <small style={{ color: "#999" }}>
-                Cannot be changed after registration
-              </small>
-            </div>
-
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "0.5rem",
-                  fontWeight: "bold",
-                  color: "#999",
-                }}
-              >
-                Driving License Number
-              </label>
-              <input
-                type="text"
-                value={formData.dlNumber}
-                disabled
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "1px solid #eee",
-                  borderRadius: "6px",
-                  background: "#f5f5f5",
-                  color: "#999",
-                }}
-              />
-              <small style={{ color: "#999" }}>
-                Cannot be changed after registration
-              </small>
-            </div>
+            </label>
           </div>
 
-          <div style={{ marginTop: "2rem", display: "flex", gap: "1rem" }}>
-            <button
-              type="submit"
-              className="btn btn-success"
-              disabled={loading}
-              style={{ flex: 1 }}
+          <form onSubmit={handleSubmit}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "1.5rem",
+              }}
             >
-              {loading ? "Updating..." : "Update Profile"}
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => navigate("/owner")}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+              {/* EDITABLE FIELDS */}
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    border: "1px solid #ddd",
+                    borderRadius: "6px",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder="Enter phone number"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    border: "1px solid #ddd",
+                    borderRadius: "6px",
+                  }}
+                />
+              </div>
+
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Address
+                </label>
+                <textarea
+                  name="address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  rows={3}
+                  placeholder="Enter your complete address"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    border: "1px solid #ddd",
+                    borderRadius: "6px",
+                    resize: "vertical",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  State
+                </label>
+                <select
+                  name="state"
+                  value={formData.state}
+                  onChange={handleChange}
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    border: "1px solid #ddd",
+                    borderRadius: "6px",
+                  }}
+                >
+                  <option value="">Select State</option>
+                  {STATES.map((state) => (
+                    <option key={state.code} value={state.code}>
+                      {state.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  District
+                </label>
+                <input
+                  type="text"
+                  name="district"
+                  value={formData.district}
+                  onChange={handleChange}
+                  placeholder="e.g., Bangalore Urban"
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    border: "1px solid #ddd",
+                    borderRadius: "6px",
+                  }}
+                />
+              </div>
+
+              {/* LOCKED FIELDS - Cannot Edit */}
+              <div
+                style={{
+                  gridColumn: "1 / -1",
+                  marginTop: "1rem",
+                  paddingTop: "1rem",
+                  borderTop: "2px solid #eee",
+                }}
+              >
+                <h4 style={{ color: "#666", marginBottom: "1rem" }}>
+                  Permanent Details (Cannot be changed)
+                </h4>
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "bold",
+                    color: "#999",
+                  }}
+                >
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  disabled
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    border: "1px solid #eee",
+                    borderRadius: "6px",
+                    background: "#f5f5f5",
+                    color: "#999",
+                  }}
+                />
+                <small style={{ color: "#999" }}>Set during registration</small>
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "bold",
+                    color: "#999",
+                  }}
+                >
+                  Aadhaar Number
+                </label>
+                <input
+                  type="text"
+                  value={formData.aadhaarNumber}
+                  disabled
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    border: "1px solid #eee",
+                    borderRadius: "6px",
+                    background: "#f5f5f5",
+                    color: "#999",
+                  }}
+                />
+                <small style={{ color: "#999" }}>
+                  Cannot be changed after registration
+                </small>
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontWeight: "bold",
+                    color: "#999",
+                  }}
+                >
+                  Driving License Number
+                </label>
+                <input
+                  type="text"
+                  value={formData.dlNumber}
+                  disabled
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    border: "1px solid #eee",
+                    borderRadius: "6px",
+                    background: "#f5f5f5",
+                    color: "#999",
+                  }}
+                />
+                <small style={{ color: "#999" }}>
+                  Cannot be changed after registration
+                </small>
+              </div>
+            </div>
+
+            <div style={{ marginTop: "2rem", display: "flex", gap: "1rem" }}>
+              <button
+                type="submit"
+                className="btn btn-success"
+                disabled={loading}
+                style={{ flex: 1 }}
+              >
+                {loading ? "Updating..." : "Update Profile"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => navigate("/owner")}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

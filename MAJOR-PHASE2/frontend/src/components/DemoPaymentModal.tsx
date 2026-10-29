@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatMoney } from "../lib/display";
 
 interface DemoPaymentModalProps {
   isOpen: boolean;
@@ -123,7 +124,8 @@ export default function DemoPaymentModal({
         {/* Header */}
         <div
           style={{
-            background: "linear-gradient(135deg, #1a237e 0%, #0d47a1 100%)",
+            background:
+              "linear-gradient(135deg, var(--color-cyan-dark) 0%, var(--color-cyan) 100%)",
             color: "white",
             padding: "20px",
             borderRadius: "12px 12px 0 0",
@@ -176,10 +178,10 @@ export default function DemoPaymentModal({
                   style={{
                     fontSize: "32px",
                     fontWeight: "bold",
-                    color: "#1a237e",
+                    color: "var(--color-cyan-dark)",
                   }}
                 >
-                  ₹{amount.toLocaleString()}
+                  ₹{formatMoney(amount)}
                 </div>
               </div>
 
@@ -337,7 +339,7 @@ export default function DemoPaymentModal({
                   padding: "14px",
                   background: processing
                     ? "#ccc"
-                    : "linear-gradient(135deg, #1a237e 0%, #0d47a1 100%)",
+                    : "linear-gradient(135deg, var(--color-cyan-dark) 0%, var(--color-cyan) 100%)",
                   color: "white",
                   border: "none",
                   borderRadius: "6px",
@@ -348,7 +350,7 @@ export default function DemoPaymentModal({
               >
                 {processing
                   ? "Processing..."
-                  : `Pay ₹${amount.toLocaleString()}`}
+                  : `Pay ₹${formatMoney(amount)}`}
               </button>
             </form>
           )}
@@ -356,7 +358,17 @@ export default function DemoPaymentModal({
           {step === "otp" && (
             <form onSubmit={handleOTPSubmit}>
               <div style={{ textAlign: "center", marginBottom: "20px" }}>
-                <div style={{ fontSize: "48px", marginBottom: "10px" }}>📱</div>
+                <div
+                  style={{
+                    fontSize: "20px",
+                    marginBottom: "10px",
+                    color: "#1e5aa8",
+                    fontWeight: 700,
+                    letterSpacing: "2px",
+                  }}
+                >
+                  OTP
+                </div>
                 <h4 style={{ margin: "0 0 10px" }}>Enter OTP</h4>
                 <p style={{ margin: 0, fontSize: "13px", color: "#666" }}>
                   OTP sent to your registered mobile number
@@ -378,7 +390,7 @@ export default function DemoPaymentModal({
                   style={{
                     width: "100%",
                     padding: "15px",
-                    border: "2px solid #1a237e",
+                    border: "2px solid var(--color-cyan-dark)",
                     borderRadius: "6px",
                     fontSize: "24px",
                     textAlign: "center",
@@ -396,7 +408,7 @@ export default function DemoPaymentModal({
                   background:
                     processing || otp.length !== 6
                       ? "#ccc"
-                      : "linear-gradient(135deg, #1a237e 0%, #0d47a1 100%)",
+                      : "linear-gradient(135deg, var(--color-cyan-dark) 0%, var(--color-cyan) 100%)",
                   color: "white",
                   border: "none",
                   borderRadius: "6px",
@@ -419,21 +431,23 @@ export default function DemoPaymentModal({
                   height: "80px",
                   borderRadius: "50%",
                   background:
-                    "linear-gradient(135deg, #4caf50 0%, #8bc34a 100%)",
+                    "linear-gradient(135deg, #0e7c3b 0%, #14854a 100%)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   margin: "0 auto 20px",
-                  fontSize: "40px",
+                  fontSize: "1.5rem",
+                  fontWeight: "bold",
+                  color: "#ffffff",
                 }}
               >
-                ✓
+                PAID
               </div>
-              <h3 style={{ margin: "0 0 10px", color: "#4caf50" }}>
-                Payment Successful!
+              <h3 style={{ margin: "0 0 10px", color: "#0e7c3b" }}>
+                Payment Successful
               </h3>
               <p style={{ margin: "0 0 5px", fontSize: "14px", color: "#666" }}>
-                Amount: <strong>₹{amount.toLocaleString()}</strong>
+                Amount: <strong>₹{formatMoney(amount)}</strong>
               </p>
               <p style={{ margin: 0, fontSize: "13px", color: "#999" }}>
                 Transaction ID: {transactionId}
@@ -452,7 +466,7 @@ export default function DemoPaymentModal({
             color: "#999",
           }}
         >
-          🔒 Secure Payment Gateway (Demo Mode)
+          Secure Payment Gateway (Demo Mode)
         </div>
       </div>
     </div>

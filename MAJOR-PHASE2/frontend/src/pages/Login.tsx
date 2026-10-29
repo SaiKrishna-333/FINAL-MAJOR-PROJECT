@@ -23,8 +23,12 @@ export default function Login() {
           navigate("/rto");
         }
       } else if (user.role === "police") navigate("/police");
+      // Every role the backend issues has to land somewhere, or a successful login
+      // leaves the operator staring at the form they just submitted.
+      else if (user.role === "workshop") navigate("/workshop");
+      else navigate("/");
     } catch (err) {
-      console.error("Login failed:", err);
+      // The login form shows the reason - a wrong password is not a defect.
       setError(err instanceof Error ? err.message : "Invalid credentials");
     }
   };
@@ -33,7 +37,8 @@ export default function Login() {
   const getEmailPlaceholder = () => {
     if (email.includes("@owner.com")) return "owner@biochain.com";
     if (email.includes("@dealer.com")) return "dealer@biochain.com";
-    if (email.includes("@ka.rto.com") || email.includes("@tn.rto.com")) return "ka.rto@biochain.com";
+    if (email.includes("@ka.rto.com") || email.includes("@tn.rto.com"))
+      return "ka.rto@biochain.com";
     if (email.includes("@police.com")) return "police@biochain.com";
     return "user@biochain.com";
   };
@@ -42,7 +47,7 @@ export default function Login() {
     <div style={{ position: "relative", minHeight: "100vh" }}>
       <header className="gov-header">
         <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-          <span style={{ fontSize: "1.5rem" }}>🏛️</span>
+          <span className="rc-emblem">IN</span>
           <div className="gov-nav">
             <a href="/">Home</a>
           </div>
@@ -64,7 +69,7 @@ export default function Login() {
             style={{
               textAlign: "center",
               margin: "20px 0",
-              color: "#1a237e",
+              color: "var(--color-cyan-dark)",
               fontWeight: "800",
             }}
           >
@@ -73,15 +78,15 @@ export default function Login() {
 
           <div
             style={{
-              background: "rgba(255, 153, 51, 0.05)",
+              background: "rgba(30, 90, 168, 0.04)",
               padding: "15px",
               borderRadius: "8px",
               marginBottom: "20px",
-              border: "1px solid rgba(255, 153, 51, 0.2)",
+              border: "1px solid rgba(30, 90, 168, 0.2)",
             }}
           >
-            <h5 style={{ margin: "0 0 10px 0", color: "#ff9933" }}>
-              📧 Role-based Email Access:
+            <h5 style={{ margin: "0 0 10px 0", color: "#1e5aa8" }}>
+              Demo Accounts:
             </h5>
             <ul
               style={{
@@ -92,16 +97,19 @@ export default function Login() {
               }}
             >
               <li>
-                <strong>Owner:</strong> @owner.com
+                <strong>Owner:</strong> owner@biochain.com
               </li>
               <li>
-                <strong>Dealer:</strong> @dealer.com
+                <strong>Dealer:</strong> dealer@biochain.com
               </li>
               <li>
-                <strong>RTO:</strong> @rto.com
+                <strong>RTO:</strong> ka.rto@biochain.com / tn.rto@biochain.com
               </li>
               <li>
-                <strong>Police:</strong> @police.com
+                <strong>Police:</strong> police@biochain.com
+              </li>
+              <li>
+                <strong>Workshop:</strong> maruti.demo@workshop.com
               </li>
             </ul>
           </div>
@@ -147,7 +155,7 @@ export default function Login() {
             <a
               href="/register"
               style={{
-                color: "#ff9933",
+                color: "#1e5aa8",
                 fontWeight: "700",
                 textDecoration: "none",
               }}

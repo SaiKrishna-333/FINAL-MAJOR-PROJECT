@@ -50,4 +50,9 @@ const theftReportSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
+// A vehicle's block status is checked on every public lookup and police stop,
+// and the officer queue filters by status.
+theftReportSchema.index({ vehicle: 1, status: 1 });
+theftReportSchema.index({ status: 1, createdAt: -1 });
+
 export const TheftReport = mongoose.model("TheftReport", theftReportSchema);

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { useAuth } from "./context/useAuth";
 import Home from "./pages/Home";
@@ -18,12 +18,86 @@ import RTOProfilePage from "./pages/RTOProfilePage";
 import OwnerProfilePage from "./pages/OwnerProfilePage";
 import DealerProfilePage from "./pages/DealerProfilePage";
 import PoliceProfilePage from "./pages/PoliceProfilePage";
+import VehicleHistory from "./pages/VehicleHistory";
+import WorkshopDashboard from "./pages/WorkshopDashboard";
+import FraudInvestigations from "./pages/FraudInvestigations";
+import TransferApprovals from "./pages/TransferApprovals";
 import type { ReactNode } from "react";
 
 interface ProtectedRouteProps {
   children: ReactNode;
   allowedRoles?: string[];
 }
+
+// The landing card lists consoles an account can actually open: every entry repeats
+// the roles allowed on that route below, so no link bounces the user back here.
+const HUB_LINKS: {
+  to: string;
+  label: string;
+  variant: string;
+  roles: string[];
+}[] = [
+  {
+    to: "/dealer",
+    label: "Go to Dealer Dashboard",
+    variant: "btn-primary",
+    roles: ["dealer"],
+  },
+  {
+    to: "/owner",
+    label: "Go to Owner Dashboard",
+    variant: "btn-primary",
+    roles: ["owner"],
+  },
+  {
+    to: "/rto",
+    label: "Go to RTO Dashboard",
+    variant: "btn-primary",
+    roles: ["rto"],
+  },
+  {
+    to: "/police",
+    label: "Go to Police Dashboard",
+    variant: "btn-primary",
+    roles: ["police"],
+  },
+  {
+    to: "/workshop",
+    label: "Go to Workshop Dashboard",
+    variant: "btn-primary",
+    roles: ["workshop"],
+  },
+  {
+    to: "/search",
+    label: "Search the Vehicle Registry",
+    variant: "btn-secondary",
+    roles: ["rto", "police"],
+  },
+  {
+    to: "/analytics",
+    label: "Open the Analytics Dashboard",
+    variant: "btn-secondary",
+    roles: ["rto", "police"],
+  },
+  {
+    to: "/investigations",
+    label: "Go to Investigations Console",
+    variant: "btn-danger",
+    roles: ["rto", "police", "admin"],
+  },
+  {
+    to: "/transfer-approvals",
+    label: "Go to Transfer Approvals",
+    variant: "btn-info",
+    roles: ["rto", "admin", "owner", "workshop"],
+  },
+  {
+    to: "/documents",
+    label: "View My Documents",
+    variant: "btn-success",
+    roles: ["dealer", "owner", "rto", "police"],
+  },
+];
 
 const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
@@ -37,7 +111,7 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
 
 // Component to handle authenticated redirects
 const AppContent = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   return (
     <Routes>
@@ -68,7 +142,7 @@ const AppContent = () => {
                 <h2
                   className="text-center"
                   style={{
-                    color: "#ff9933",
+                    color: "#1e5aa8",
                     marginBottom: "20px",
                     fontSize: "2rem",
                     fontWeight: "700",
@@ -96,10 +170,13 @@ const AppContent = () => {
                     textAlign: "center",
                   }}
                 >
-                  {user.role === "dealer" && (
-                    <a
-                      href="/dealer"
-                      className="btn btn-primary"
+                  {HUB_LINKS.filter((link) =>
+                    link.roles.includes(user.role),
+                  ).map((link) => (
+                    <Link
+                      key={link.to}
+                      to={link.to}
+                      className={`btn ${link.variant}`}
                       style={{
                         textDecoration: "none",
                         padding: "15px 25px",
@@ -108,67 +185,9 @@ const AppContent = () => {
                         display: "block",
                       }}
                     >
-                      Go to Dealer Dashboard
-                    </a>
-                  )}
-                  {user.role === "owner" && (
-                    <a
-                      href="/owner"
-                      className="btn btn-primary"
-                      style={{
-                        textDecoration: "none",
-                        padding: "15px 25px",
-                        fontSize: "1.1rem",
-                        fontWeight: "600",
-                        display: "block",
-                      }}
-                    >
-                      Go to Owner Dashboard
-                    </a>
-                  )}
-                  {user.role === "rto" && (
-                    <a
-                      href="/rto"
-                      className="btn btn-primary"
-                      style={{
-                        textDecoration: "none",
-                        padding: "15px 25px",
-                        fontSize: "1.1rem",
-                        fontWeight: "600",
-                        display: "block",
-                      }}
-                    >
-                      Go to RTO Dashboard
-                    </a>
-                  )}
-                  {user.role === "police" && (
-                    <a
-                      href="/police"
-                      className="btn btn-primary"
-                      style={{
-                        textDecoration: "none",
-                        padding: "15px 25px",
-                        fontSize: "1.1rem",
-                        fontWeight: "600",
-                        display: "block",
-                      }}
-                    >
-                      Go to Police Dashboard
-                    </a>
-                  )}
-                  <a
-                    href="/documents"
-                    className="btn btn-success"
-                    style={{
-                      textDecoration: "none",
-                      padding: "15px 25px",
-                      fontSize: "1.1rem",
-                      fontWeight: "600",
-                      display: "block",
-                    }}
-                  >
-                    View My Documents
-                  </a>
+                      {link.label}
+                    </Link>
+                  ))}
                 </div>
 
                 <p
@@ -181,14 +200,18 @@ const AppContent = () => {
                 >
                   Or{" "}
                   <a
-                    href="/logout"
+                    href="/login"
                     onClick={(e) => {
                       e.preventDefault();
-                      localStorage.removeItem("token");
-                      localStorage.removeItem("user");
-                      window.location.href = "/";
+                      // Through the context, because that also drops the live WebSocket
+                      // connection - clearing storage by hand leaves it running.
+                      logout();
+                      window.location.href = "/login";
                     }}
-                    style={{ color: "#ff9933", textDecoration: "underline" }}
+                    style={{
+                      color: "#b91c1c",
+                      textDecoration: "underline",
+                    }}
                   >
                     Logout
                   </a>
@@ -275,6 +298,31 @@ const AppContent = () => {
         }
       />
       <Route
+        path="/workshop"
+        element={
+          <ProtectedRoute allowedRoles={["workshop"]}>
+            <WorkshopDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/vehicle-history/:vehicleId"
+        element={
+          <ProtectedRoute
+            allowedRoles={[
+              "owner",
+              "dealer",
+              "rto",
+              "police",
+              "admin",
+              "workshop",
+            ]}
+          >
+            <VehicleHistory />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/documents"
         element={
           <ProtectedRoute allowedRoles={["dealer", "owner", "rto", "police"]}>
@@ -298,8 +346,26 @@ const AppContent = () => {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/investigations"
+        element={
+          <ProtectedRoute allowedRoles={["rto", "police", "admin"]}>
+            <FraudInvestigations />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/transfer-approvals"
+        element={
+          <ProtectedRoute allowedRoles={["rto", "admin", "owner", "workshop"]}>
+            <TransferApprovals />
+          </ProtectedRoute>
+        }
+      />
       <Route path="/rc-card/:vehicleId" element={<RCCardView />} />
       <Route path="/invoice/:requestId" element={<InvoiceView />} />
+      {/* Unknown URLs land back on the public home page - never a blank screen */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };

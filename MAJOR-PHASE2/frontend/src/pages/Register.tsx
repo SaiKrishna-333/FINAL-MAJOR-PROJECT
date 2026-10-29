@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import BiometricCaptureModal from "../components/BiometricCaptureModal";
+import OcrDocumentUpload, {
+  type OcrFields,
+} from "../components/OcrDocumentUpload";
 
 export default function Register() {
   const [formData, setFormData] = useState({
@@ -16,13 +19,60 @@ export default function Register() {
     aadhaarNumber: "",
     dlNumber: "",
     badgeNumber: "", // For police
+    workshopCompany: "", // Shop/agency name for workshop role
+    workshopManufacturer: "", // Vehicle company the workshop belongs to
     profilePhoto: null as File | null,
   });
   const [error, setError] = useState("");
   const [step, setStep] = useState<"form" | "biometric">("form");
   const [showBiometric, setShowBiometric] = useState(false);
   const [registeredUserId, setRegisteredUserId] = useState("");
+  // KYC provenance: set when an uploaded document was OCR-read into the form
+  const [kyc, setKyc] = useState<{ docType: string; viaOcr: boolean } | null>(
+    null,
+  );
   const navigate = useNavigate();
+
+  // Merge OCR-extracted fields into the form. Values typed by the user in
+  // fields the OCR misread can simply be corrected below before submitting.
+  const applyOcrFields = (fields: OcrFields, documentType: string) => {
+    setKyc({ docType: documentType || "id-document", viaOcr: true });
+    setFormData((prev) => ({
+      ...prev,
+      name: fields.name || prev.name,
+      phone: fields.phone
+        ? `+91 ${fields.phone}`.replace(/\+91 (\d{10})$/, "+91 $1")
+        : prev.phone,
+      address: fields.address
+        ? fields.address +
+          (fields.pincode && !fields.address.includes(fields.pincode)
+            ? ` - PIN ${fields.pincode}`
+            : "")
+        : prev.address,
+      state:
+        fields.state &&
+        [
+          "AP",
+          "TS",
+          "KA",
+          "TN",
+          "MH",
+          "DL",
+          "GJ",
+          "RJ",
+          "UP",
+          "MP",
+          "KL",
+        ].includes(fields.state)
+          ? fields.state
+          : prev.state,
+      district: fields.district || prev.district,
+      aadhaarNumber: fields.aadhaarNumber
+        ? fields.aadhaarNumber.replace(/\D/g, "").slice(0, 12)
+        : prev.aadhaarNumber,
+      dlNumber: fields.dlNumber || prev.dlNumber,
+    }));
+  };
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -43,6 +93,8 @@ export default function Register() {
         return "username@rto.com";
       case "police":
         return "username@police.com";
+      case "workshop":
+        return "username@workshop.com";
       default:
         return "username@role.com";
     }
@@ -66,8 +118,22 @@ export default function Register() {
       if (formData.role === "police" && formData.badgeNumber) {
         formDataToSend.append("badgeNumber", formData.badgeNumber);
       }
+      if (formData.role === "workshop") {
+        formDataToSend.append(
+          "workshopDetails",
+          JSON.stringify({
+            companyName: formData.workshopCompany,
+            affiliatedManufacturer: formData.workshopManufacturer,
+          }),
+        );
+      }
       if (formData.profilePhoto) {
         formDataToSend.append("profilePhoto", formData.profilePhoto);
+      }
+      // KYC provenance so the record shows the form was OCR-backed
+      if (kyc?.viaOcr) {
+        formDataToSend.append("kycDocType", kyc.docType);
+        formDataToSend.append("kycViaOcr", "true");
       }
 
       const response = await axios.post(
@@ -109,7 +175,7 @@ export default function Register() {
         },
       );
 
-      alert("Registration and biometric enrollment successful! Please login.");
+      alert("Registration and biometric enrollment successful. Please login.");
       navigate("/login");
     } catch (err: unknown) {
       const errorMessage =
@@ -125,7 +191,7 @@ export default function Register() {
     <div style={{ position: "relative", minHeight: "100vh" }}>
       <header className="gov-header">
         <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-          <span style={{ fontSize: "1.5rem" }}>🏛️</span>
+          <span className="rc-emblem">IN</span>
           <div className="gov-nav">
             <a href="/">Home</a>
             <a href="/login">Login</a>
@@ -148,7 +214,7 @@ export default function Register() {
             style={{
               textAlign: "center",
               margin: "20px 0",
-              color: "#1a237e",
+              color: "var(--color-cyan-dark)",
               fontWeight: "800",
             }}
           >
@@ -159,15 +225,15 @@ export default function Register() {
             <>
               <div
                 style={{
-                  background: "rgba(19, 136, 8, 0.05)",
+                  background: "rgba(30, 90, 168, 0.05)",
                   padding: "15px",
                   borderRadius: "8px",
                   marginBottom: "20px",
-                  border: "1px solid rgba(19, 136, 8, 0.2)",
+                  border: "1px solid rgba(30, 90, 168, 0.2)",
                 }}
               >
-                <h5 style={{ margin: "0 0 10px 0", color: "#138808" }}>
-                  🇮🇳 Identity Verification Requirements:
+                <h5 style={{ margin: "0 0 10px 0", color: "#1e5aa8" }}>
+                  Identity Verification Requirements:
                 </h5>
                 <p
                   style={{
@@ -183,16 +249,27 @@ export default function Register() {
                   style={{
                     margin: "5px 0",
                     fontSize: "0.85rem",
-                    color: "#d32f2f",
+                    color: "var(--color-danger)",
                     fontWeight: "bold",
                   }}
                 >
-                  ⚠️ All fields are mandatory. Profile details can be edited
-                  later from dashboard.
+                  All fields are mandatory. Profile details can be edited later
+                  from dashboard.
                 </p>
               </div>
 
               {error && <div className="alert alert-danger">{error}</div>}
+              <OcrDocumentUpload onExtract={applyOcrFields} />
+              {kyc?.viaOcr && (
+                <div
+                  className="alert alert-success"
+                  style={{ fontSize: "0.85rem", padding: "10px 14px" }}
+                >
+                  Form auto-filled by OCR from your{" "}
+                  {kyc.docType.replace("-", " ")} — please review every field;
+                  you can still edit anything before submitting.
+                </div>
+              )}
               <form onSubmit={handleSubmit}>
                 <div className="form-group">
                   <label>Full Name (as per Aadhaar)</label>
@@ -236,6 +313,7 @@ export default function Register() {
                     <option value="dealer">Dealer</option>
                     <option value="rto">RTO Officer</option>
                     <option value="police">Police</option>
+                    <option value="workshop">Workshop / Service Centre</option>
                   </select>
                 </div>
                 <div className="form-group">
@@ -346,6 +424,38 @@ export default function Register() {
                       required
                     />
                   </div>
+                  {formData.role === "workshop" && (
+                    <>
+                      <div
+                        className="form-group"
+                        style={{ gridColumn: "span 2" }}
+                      >
+                        <label>Shop / Agency Name *</label>
+                        <input
+                          type="text"
+                          name="workshopCompany"
+                          value={formData.workshopCompany}
+                          onChange={handleChange}
+                          placeholder="e.g., Sai Automobiles"
+                          required
+                        />
+                      </div>
+                      <div
+                        className="form-group"
+                        style={{ gridColumn: "span 2" }}
+                      >
+                        <label>Vehicle Company (Manufacturer) *</label>
+                        <input
+                          type="text"
+                          name="workshopManufacturer"
+                          value={formData.workshopManufacturer}
+                          onChange={handleChange}
+                          placeholder="e.g., Maruti Suzuki - only matching vehicles will be visible to you"
+                          required
+                        />
+                      </div>
+                    </>
+                  )}
                   {formData.role === "police" && (
                     <div
                       className="form-group"
@@ -389,7 +499,7 @@ export default function Register() {
                 </div>
                 <button
                   type="submit"
-                  className="btn btn-success"
+                  className="btn btn-primary"
                   style={{ width: "100%", padding: "14px", marginTop: "10px" }}
                 >
                   Create Secure Identity
@@ -406,7 +516,7 @@ export default function Register() {
                 <a
                   href="/login"
                   style={{
-                    color: "#138808",
+                    color: "var(--color-cyan)",
                     fontWeight: "700",
                     textDecoration: "none",
                   }}

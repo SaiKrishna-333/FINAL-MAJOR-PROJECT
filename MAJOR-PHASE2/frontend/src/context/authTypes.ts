@@ -13,6 +13,16 @@ export interface DealerDetails {
   phone: string;
 }
 
+export interface WorkshopDetails {
+  companyName: string;
+  affiliatedManufacturer: string; // Vehicle company, e.g. "Maruti Suzuki"
+  gstin?: string;
+  licenseNumber?: string;
+  address?: string;
+  phone?: string;
+  verified?: boolean;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -32,6 +42,7 @@ export interface User {
   };
   dealerDetails?: DealerDetails;
   rtoDetails?: RTODetails;
+  workshopDetails?: WorkshopDetails;
 }
 
 import type { AxiosInstance } from 'axios';

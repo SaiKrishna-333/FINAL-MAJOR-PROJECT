@@ -1,31 +1,28 @@
 // biometricService.js
-// This file integrates with real fingerprint SDK for biometric authentication
+// Fingerprint enrolment and matching for ownership-critical operations.
+//
+// HONEST SCOPE: no scanner SDK is wired up on this machine, so the template bytes
+// and the match score are simulated (see BIOMETRIC_SIMULATION_GUIDE.md). What is
+// real is the enrolment record: it lives in MongoDB, so a restart does not
+// un-enrol every user and biometric-gated operations keep working across
+// processes. Swapping simulateBiometricMatch() for an SDK call is the only change
+// needed to run this against hardware.
 
-// For demonstration purposes, we'll use a mock biometric SDK
-// In production, this would connect to a real fingerprint scanner SDK
-
-// Mock database to store biometric templates (in production, use secure storage)
-const biometricTemplates = new Map();
+import { BiometricTemplate } from "../models/BiometricTemplate.js";
 
 export const enrollFingerprint = async (userId, rawFingerprintData) => {
     try {
-        // Simulate connecting to fingerprint scanner SDK
-        // This would be replaced with actual SDK calls
-        console.log(`Enrolling fingerprint for user ${userId}`);
-
         // In a real implementation, this would process the raw fingerprint data
         // and generate a secure biometric template
         const templateId = generateSecureTemplateId(userId);
 
-        // Store the biometric template securely (in production, use encrypted storage)
-        biometricTemplates.set(templateId, {
-            userId,
+        await BiometricTemplate.create({
+            user: userId,
+            templateId,
             template: rawFingerprintData || `encrypted_template_for_${userId}`,
             enrolledAt: new Date(),
             status: 'active'
         });
-
-        console.log(`Fingerprint enrolled successfully for user ${userId}. Template ID: ${templateId}`);
 
         return templateId;
     } catch (error) {
@@ -36,36 +33,25 @@ export const enrollFingerprint = async (userId, rawFingerprintData) => {
 
 export const verifyFingerprint = async (userId, rawFingerprintData) => {
     try {
-        console.log(`Verifying fingerprint for user ${userId}`);
+        // Newest enrolment wins: re-scanning replaces the previous template
+        const stored = await getUserBiometricTemplate(userId);
 
-        // Find the user's stored biometric template
-        let userTemplateId = null;
-        for (const [templateId, templateData] of biometricTemplates.entries()) {
-            if (templateData.userId === userId && templateData.status === 'active') {
-                userTemplateId = templateId;
-                break;
-            }
-        }
-
-        if (!userTemplateId) {
+        if (!stored) {
             return {
                 success: false,
                 message: "No enrolled fingerprint found for this user"
             };
         }
 
-        // In a real implementation, this would compare the raw fingerprint data
-        // with the stored template using the SDK's matching algorithm
-        // For demo, we'll simulate a successful match
-        const isValid = simulateBiometricMatch(biometricTemplates.get(userTemplateId), rawFingerprintData);
+        const isValid = simulateBiometricMatch(stored, rawFingerprintData);
 
         const result = {
             success: isValid,
             message: isValid ? "Fingerprint verification successful" : "Fingerprint verification failed",
-            templateId: userTemplateId
+            templateId: stored.templateId
         };
 
-        console.log(`Fingerprint verification result for user ${userId}:`, result);
+        if (!isValid) console.warn(`Fingerprint verification failed for user ${userId}`);
 
         return result;
     } catch (error) {
@@ -91,13 +77,20 @@ function simulateBiometricMatch(storedTemplate, inputTemplate) {
 
 // Function to get user's biometric template
 export const getUserBiometricTemplate = async (userId) => {
-    for (const [templateId, templateData] of biometricTemplates.entries()) {
-        if (templateData.userId === userId && templateData.status === 'active') {
-            return {
-                templateId,
-                ...templateData
-            };
-        }
+    try {
+        const doc = await BiometricTemplate.findOne({ user: userId, status: 'active' })
+            .sort({ enrolledAt: -1 })
+            .lean();
+        if (!doc) return null;
+        return {
+            templateId: doc.templateId,
+            userId: String(doc.user),
+            template: doc.template,
+            enrolledAt: doc.enrolledAt,
+            status: doc.status
+        };
+    } catch (error) {
+        console.error('Error reading biometric template:', error.message);
+        return null;
     }
-    return null;
 };

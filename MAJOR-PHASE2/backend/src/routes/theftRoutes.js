@@ -59,7 +59,7 @@ router.post("/report", authRequired, async (req, res) => {
         try {
             // Also update the status on the blockchain
             const txHash = await updateVehicleStatusOnChain(vehicle.regNumber, "stolen");
-            vehicle.blockchainTxHash = txHash;
+            if (txHash) vehicle.blockchainTxHash = txHash;
         } catch (blockchainErr) {
             console.error("Failed to update vehicle status on blockchain:", blockchainErr.message);
             // Don't fail the whole operation if blockchain update fails
@@ -143,7 +143,7 @@ router.put("/reports/:id/recover", authRequired, requireRole("police"), async (r
         try {
             if (vehicle.regNumber) {
                 const txHash = await updateVehicleStatusOnChain(vehicle.regNumber, "active");
-                vehicle.blockchainTxHash = txHash;
+                if (txHash) vehicle.blockchainTxHash = txHash;
                 await vehicle.save();
             }
         } catch (blockchainErr) {
@@ -170,11 +170,17 @@ router.put("/reports/:id/recover", authRequired, requireRole("police"), async (r
     }
 });
 
-// Update theft report status (police)
-router.put("/reports/:id", authRequired, requireRole("police"), async (req, res) => {
+// Update theft report status (police and RTO officers - the RTO also has to
+// restore the registration record once a vehicle is recovered)
+router.put("/reports/:id", authRequired, requireRole("police", "rto"), async (req, res) => {
     try {
         const { id } = req.params;
         const { status, recoveryDate, recoveryLocation, remarks } = req.body;
+
+        const allowedStatuses = ["reported", "under_investigation", "recovered", "closed"];
+        if (!allowedStatuses.includes(status)) {
+            return res.status(400).json({ message: `Status must be one of: ${allowedStatuses.join(", ")}` });
+        }
 
         const report = await TheftReport.findById(id).populate("vehicle");
         if (!report) {
@@ -195,7 +201,7 @@ router.put("/reports/:id", authRequired, requireRole("police"), async (req, res)
             try {
                 // Also update the status on the blockchain
                 const txHash = await updateVehicleStatusOnChain(report.vehicle.regNumber, "active");
-                report.vehicle.blockchainTxHash = txHash;
+                if (txHash) report.vehicle.blockchainTxHash = txHash;
             } catch (blockchainErr) {
                 console.error("Failed to update vehicle status on blockchain:", blockchainErr.message);
                 // Don't fail the whole operation if blockchain update fails

@@ -16,8 +16,9 @@ export default {
     },
     networks: {
         polygonAmoy: {
-            url: process.env.POLYGON_RPC_URL || "https://rpc-amoy.polygon.technology",
-            accounts: [process.env.WALLET_PRIVATE_KEY],
+            // rpc-amoy.polygon.technology has been unreliable (DNS); publicnode verified working
+            url: process.env.POLYGON_RPC_URL || "https://polygon-amoy-bor-rpc.publicnode.com",
+            accounts: process.env.WALLET_PRIVATE_KEY ? [process.env.WALLET_PRIVATE_KEY] : [],
             chainId: 80002,
             gas: 6000000,
             gasPrice: 50000000000, // 50 gwei

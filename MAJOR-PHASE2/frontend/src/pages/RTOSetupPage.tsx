@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../context/useAuth";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
+import { STATES, stateName } from "../lib/states";
 
 export default function RTOSetupPage() {
   const { user, api } = useAuth();
@@ -20,20 +21,6 @@ export default function RTOSetupPage() {
 
   const [loading, setLoading] = useState(false);
 
-  const states = [
-    { code: "AP", name: "Andhra Pradesh" },
-    { code: "TS", name: "Telangana" },
-    { code: "KA", name: "Karnataka" },
-    { code: "TN", name: "Tamil Nadu" },
-    { code: "MH", name: "Maharashtra" },
-    { code: "DL", name: "Delhi" },
-    { code: "GJ", name: "Gujarat" },
-    { code: "RJ", name: "Rajasthan" },
-    { code: "UP", name: "Uttar Pradesh" },
-    { code: "MP", name: "Madhya Pradesh" },
-    { code: "KL", name: "Kerala" },
-  ];
-
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
@@ -44,7 +31,7 @@ export default function RTOSetupPage() {
       ...prev,
       [name]: value,
       ...(name === "stateCode" && {
-        stateName: states.find((s) => s.code === value)?.name || "",
+        stateName: stateName(value),
       }),
     }));
   };
@@ -55,10 +42,10 @@ export default function RTOSetupPage() {
 
     try {
       await api.put("/auth/update-rto-details", { rtoDetails: formData });
-      alert("RTO details setup completed successfully!");
+      alert("RTO details setup completed successfully.");
       navigate("/rto");
     } catch (err: unknown) {
-      console.error(err);
+      // The reason the API gave is what the officer needs to see.
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
       alert("Error updating RTO details: " + errorMessage);
     } finally {
@@ -66,15 +53,16 @@ export default function RTOSetupPage() {
     }
   };
 
+  // Returning <Navigate> instead of calling navigate() during render: a call made in
+  // the render phase is dropped by React Router, which left this page rendering
+  // nothing at all while the URL stayed put.
   if (!user || user.role !== "rto") {
-    navigate("/login");
-    return null;
+    return <Navigate to="/login" replace />;
   }
 
   // If already setup, redirect to dashboard
   if (user.rtoDetails?.stateCode) {
-    navigate("/rto");
-    return null;
+    return <Navigate to="/rto" replace />;
   }
 
   return (
@@ -124,7 +112,7 @@ export default function RTOSetupPage() {
                 }}
               >
                 <option value="">Select State</option>
-                {states.map((state) => (
+                {STATES.map((state) => (
                   <option key={state.code} value={state.code}>
                     {state.name}
                   </option>
@@ -344,7 +332,7 @@ export default function RTOSetupPage() {
             borderRadius: "8px",
           }}
         >
-          <h4 style={{ margin: "0 0 0.5rem 0" }}>ℹ️ Information</h4>
+          <h4 style={{ margin: "0 0 0.5rem 0" }}>Information</h4>
           <p style={{ margin: 0, fontSize: "0.9rem", color: "#555" }}>
             Once you complete the setup, you will be able to:
           </p>

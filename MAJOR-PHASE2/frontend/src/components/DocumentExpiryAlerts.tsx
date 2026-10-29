@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/useAuth";
+import { formatDate } from "../lib/display";
 
 interface ExpiryAlert {
   vehicleId: string;
@@ -23,8 +24,8 @@ export default function DocumentExpiryAlerts() {
       setLoading(true);
       const res = await api.get("/documents-mgmt/expiry-alerts");
       setAlerts(res.data);
-    } catch (err) {
-      console.error("Failed to fetch expiry alerts:", err);
+    } catch {
+      // No alerts panel rather than an error dialog when nothing can be listed.
     } finally {
       setLoading(false);
     }
@@ -34,30 +35,31 @@ export default function DocumentExpiryAlerts() {
     fetchAlerts();
   }, [fetchAlerts]);
 
+  // Formal document-type abbreviation chips (no decorative icons)
   const getDocumentIcon = (type: string) => {
     switch (type) {
       case "insurance":
-        return "🛡️";
+        return "INS";
       case "puc":
-        return "🌱";
+        return "PUC";
       case "rc":
-        return "📄";
+        return "RC";
       default:
-        return "📎";
+        return "DOC";
     }
   };
 
   const getUrgencyColor = (daysUntilExpiry: number, status: string) => {
     if (status === "expired") {
-      return { bg: "#EF444420", border: "#EF4444", text: "#EF4444" };
+      return { bg: "#b91c1c20", border: "#b91c1c", text: "#b91c1c" };
     }
     if (daysUntilExpiry <= 7) {
-      return { bg: "#EF444420", border: "#EF4444", text: "#EF4444" };
+      return { bg: "#b91c1c20", border: "#b91c1c", text: "#b91c1c" };
     }
     if (daysUntilExpiry <= 15) {
-      return { bg: "#F59E0B20", border: "#F59E0B", text: "#F59E0B" };
+      return { bg: "#b4530920", border: "#b45309", text: "#b45309" };
     }
-    return { bg: "#10B98120", border: "#10B981", text: "#10B981" };
+    return { bg: "#0e7c3b20", border: "#0e7c3b", text: "#0e7c3b" };
   };
 
   if (loading) {
@@ -74,7 +76,7 @@ export default function DocumentExpiryAlerts() {
 
   const expiredCount = alerts.filter((a) => a.status === "expired").length;
   const expiringSoonCount = alerts.filter(
-    (a) => a.status === "expiring-soon"
+    (a) => a.status === "expiring-soon",
   ).length;
 
   return (
@@ -85,7 +87,6 @@ export default function DocumentExpiryAlerts() {
         style={{ cursor: "pointer" }}
       >
         <div className="alerts-title">
-          <span className="alert-icon">⚠️</span>
           <h4>Document Expiry Alerts</h4>
           <span className="alert-count">
             {expiredCount > 0 && (
@@ -98,7 +99,28 @@ export default function DocumentExpiryAlerts() {
             )}
           </span>
         </div>
-        <span className="expand-icon">{expanded ? "▼" : "▶"}</span>
+        <span
+          className="expand-icon"
+          aria-hidden="true"
+          style={{
+            display: "inline-block",
+            transition: "transform 0.2s ease",
+            transform: expanded ? "rotate(90deg)" : "none",
+          }}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="9 6 15 12 9 18" />
+          </svg>
+        </span>
       </div>
 
       {expanded && (
@@ -133,7 +155,7 @@ export default function DocumentExpiryAlerts() {
                       <strong>Expires in {alert.daysUntilExpiry} days</strong>
                     )}
                     <span className="expiry-date">
-                      ({new Date(alert.expiryDate).toLocaleDateString()})
+                      ({formatDate(alert.expiryDate)})
                     </span>
                   </p>
                 </div>

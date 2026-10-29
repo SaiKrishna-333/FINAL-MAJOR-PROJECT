@@ -33,8 +33,7 @@
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4"
   },
-  "description": "This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.",
-  "main": "eslint.config.js",
+  "description": "BioChain RTO citizen, dealer, workshop, police and RTO console (React + TypeScript + Vite).",
   "keywords": [],
   "author": "",
   "license": "ISC"

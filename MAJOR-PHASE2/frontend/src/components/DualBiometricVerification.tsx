@@ -119,7 +119,7 @@ export default function DualBiometricVerification({
           <h2
             style={{
               margin: "0 0 10px 0",
-              color: "#1a237e",
+              color: "var(--color-cyan-dark)",
               fontSize: "1.5rem",
               fontWeight: "bold",
             }}
@@ -154,9 +154,9 @@ export default function DualBiometricVerification({
                   borderRadius: "50%",
                   background:
                     currentStep > 1
-                      ? "linear-gradient(135deg, #11998e, #38ef7d)"
+                      ? "linear-gradient(135deg, #0e7c3b, #14854a)"
                       : currentStep === 1
-                        ? "#667eea"
+                        ? "#1e5aa8"
                         : "#e0e0e0",
                   color: "white",
                   display: "flex",
@@ -166,7 +166,7 @@ export default function DualBiometricVerification({
                   fontWeight: "bold",
                 }}
               >
-                {currentStep > 1 ? "✓" : "1"}
+                {"1"}
               </div>
               <span style={{ fontSize: "0.8rem", color: "#666" }}>
                 {person1Role}
@@ -177,7 +177,7 @@ export default function DualBiometricVerification({
               style={{
                 width: "40px",
                 height: "2px",
-                background: currentStep >= 2 ? "#11998e" : "#e0e0e0",
+                background: currentStep >= 2 ? "#0e7c3b" : "#e0e0e0",
                 alignSelf: "center",
               }}
             />
@@ -197,9 +197,9 @@ export default function DualBiometricVerification({
                   borderRadius: "50%",
                   background:
                     currentStep > 2
-                      ? "linear-gradient(135deg, #11998e, #38ef7d)"
+                      ? "linear-gradient(135deg, #0e7c3b, #14854a)"
                       : currentStep === 2
-                        ? "#667eea"
+                        ? "#1e5aa8"
                         : "#e0e0e0",
                   color: "white",
                   display: "flex",
@@ -209,7 +209,7 @@ export default function DualBiometricVerification({
                   fontWeight: "bold",
                 }}
               >
-                {currentStep > 2 ? "✓" : "2"}
+                {"2"}
               </div>
               <span style={{ fontSize: "0.8rem", color: "#666" }}>
                 {person2Role}
@@ -220,7 +220,7 @@ export default function DualBiometricVerification({
               style={{
                 width: "40px",
                 height: "2px",
-                background: currentStep >= 3 ? "#11998e" : "#e0e0e0",
+                background: currentStep >= 3 ? "#0e7c3b" : "#e0e0e0",
                 alignSelf: "center",
               }}
             />
@@ -240,11 +240,11 @@ export default function DualBiometricVerification({
                   borderRadius: "50%",
                   background:
                     matchResult === "success"
-                      ? "linear-gradient(135deg, #11998e, #38ef7d)"
+                      ? "linear-gradient(135deg, #0e7c3b, #14854a)"
                       : matchResult === "failed"
-                        ? "#eb3349"
+                        ? "#b91c1c"
                         : currentStep === 3
-                          ? "#667eea"
+                          ? "#1e5aa8"
                           : "#e0e0e0",
                   color: "white",
                   display: "flex",
@@ -254,11 +254,7 @@ export default function DualBiometricVerification({
                   fontWeight: "bold",
                 }}
               >
-                {matchResult === "success"
-                  ? "✓"
-                  : matchResult === "failed"
-                    ? "✕"
-                    : "3"}
+                {matchResult === "failed" ? "×" : "3"}
               </div>
               <span style={{ fontSize: "0.8rem", color: "#666" }}>Verify</span>
             </div>
@@ -308,10 +304,10 @@ export default function DualBiometricVerification({
                   >
                     <div style={{ fontSize: "2.5rem", marginBottom: "10px" }}>
                       {person1Role === "dealer"
-                        ? "🏪"
+                        ? ""
                         : person1Role === "owner"
-                          ? "👤"
-                          : "👮"}
+                          ? ""
+                          : ""}
                     </div>
                     <p
                       style={{
@@ -338,7 +334,7 @@ export default function DualBiometricVerification({
                     style={{
                       fontSize: "2rem",
                       fontWeight: "bold",
-                      color: "#667eea",
+                      color: "#1e5aa8",
                     }}
                   >
                     ⟷
@@ -355,10 +351,10 @@ export default function DualBiometricVerification({
                   >
                     <div style={{ fontSize: "2.5rem", marginBottom: "10px" }}>
                       {person2Role === "dealer"
-                        ? "🏪"
+                        ? ""
                         : person2Role === "owner"
-                          ? "👤"
-                          : "👮"}
+                          ? ""
+                          : ""}
                     </div>
                     <p
                       style={{
@@ -388,12 +384,17 @@ export default function DualBiometricVerification({
                     height: "80px",
                     margin: "0 auto 20px",
                     border: "5px solid #f3f3f3",
-                    borderTop: "5px solid #667eea",
+                    borderTop: "5px solid #1e5aa8",
                     borderRadius: "50%",
                     animation: "spin 1s linear infinite",
                   }}
                 />
-                <h3 style={{ color: "#1a237e", margin: "15px 0 10px" }}>
+                <h3
+                  style={{
+                    color: "var(--color-cyan-dark)",
+                    margin: "15px 0 10px",
+                  }}
+                >
                   Verifying Biometric Match...
                 </h3>
                 <p style={{ color: "#666", fontSize: "0.9rem" }}>
@@ -409,26 +410,28 @@ export default function DualBiometricVerification({
                     width: "120px",
                     height: "120px",
                     margin: "0 auto 25px",
-                    background: "linear-gradient(135deg, #11998e, #38ef7d)",
+                    background: "linear-gradient(135deg, #0e7c3b, #14854a)",
                     borderRadius: "50%",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: "4rem",
+                    fontSize: "1.6rem",
+                    fontWeight: "bold",
+                    letterSpacing: "1px",
                     color: "white",
                     animation: "scaleIn 0.5s ease-out",
                   }}
                 >
-                  ✓
+                  OK
                 </div>
                 <h3
                   style={{
-                    color: "#11998e",
+                    color: "#0e7c3b",
                     margin: "15px 0 10px",
                     fontSize: "1.5rem",
                   }}
                 >
-                  Biometric Match Confirmed!
+                  Biometric Match Confirmed
                 </h3>
                 <p
                   style={{
@@ -450,10 +453,10 @@ export default function DualBiometricVerification({
                   }}
                 >
                   <p style={{ margin: "8px 0", color: "#2e7d32" }}>
-                    ✅ {person1Name} ({person1Role}) verified
+                    {person1Name} ({person1Role}) verified
                   </p>
                   <p style={{ margin: "8px 0", color: "#2e7d32" }}>
-                    ✅ {person2Name} ({person2Role}) verified
+                    {person2Name} ({person2Role}) verified
                   </p>
                   <p
                     style={{
@@ -462,7 +465,7 @@ export default function DualBiometricVerification({
                       fontWeight: "bold",
                     }}
                   >
-                    ✅ Transaction authorized on blockchain
+                    Transaction authorized on blockchain
                   </p>
                 </div>
               </>
@@ -475,7 +478,7 @@ export default function DualBiometricVerification({
                     width: "120px",
                     height: "120px",
                     margin: "0 auto 25px",
-                    background: "linear-gradient(135deg, #eb3349, #f45c43)",
+                    background: "linear-gradient(135deg, #b91c1c, #d33b2f)",
                     borderRadius: "50%",
                     display: "flex",
                     alignItems: "center",
@@ -485,11 +488,11 @@ export default function DualBiometricVerification({
                     animation: "shake 0.5s ease-in-out",
                   }}
                 >
-                  ✕
+                  ×
                 </div>
                 <h3
                   style={{
-                    color: "#eb3349",
+                    color: "#b91c1c",
                     margin: "15px 0 10px",
                     fontSize: "1.5rem",
                   }}
@@ -509,7 +512,7 @@ export default function DualBiometricVerification({
                   onClick={handleClose}
                   style={{
                     padding: "12px 30px",
-                    background: "linear-gradient(135deg, #667eea, #764ba2)",
+                    background: "linear-gradient(135deg, #1e5aa8, #16437e)",
                     color: "white",
                     border: "none",
                     borderRadius: "8px",

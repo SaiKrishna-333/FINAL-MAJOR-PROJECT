@@ -322,6 +322,12 @@ router.post("/:id/destination-rto-approve", authRequired, requireRole("rto"), as
         vehicle.status = "active";
         vehicle.lastStateChange = new Date();
 
+        // A fresh number from this office is a fresh certificate, so the office
+        // and the officer behind it are recorded for the RC to print.
+        vehicle.issuedByOffice = user.rtoDetails?.rtoOfficeName || vehicle.issuedByOffice;
+        vehicle.issuedByOfficer = `${user.name}${user.employeeId ? ` (${user.employeeId})` : ""}`;
+        if (!vehicle.registrationDate) vehicle.registrationDate = new Date();
+
         vehicle.stateChangeHistory.push({
             from: oldRegNumber,
             to: newRegNumber,
@@ -348,19 +354,29 @@ router.post("/:id/destination-rto-approve", authRequired, requireRole("rto"), as
         // tracks registration by the existing regNumber key and does not support renaming it.
         let blockchainTxHash = null;
         try {
-            const ownerAddress = vehicle.currentOwner?.blockchainWalletAddress || "0xF7167C4089CA6e6374D9B42dE09b97DC416cF725";
-            blockchainTxHash = await registerVehicleTransferOnChain(
-                oldRegNumber,
-                newRegNumber,
-                ownerAddress,
-                "inter_state_transfer"
-            );
-            vehicle.blockchainTxHash = blockchainTxHash;
-            const ownershipHistoryEntry = vehicle.ownershipHistory[vehicle.ownershipHistory.length - 1];
-            if (ownershipHistoryEntry) {
-                ownershipHistoryEntry.blockchainTxHash = blockchainTxHash;
+            // The registry has to be told whose ownership changed, so it needs the
+            // owner's own wallet. Substituting the anchoring wallet here would put
+            // this system's address on the ledger as the vehicle's owner - instead
+            // the transfer is simply not anchored and the reason is stated once.
+            const ownerUser = await User.findById(vehicle.currentOwner).select("name blockchainWalletAddress");
+            if (!ownerUser?.blockchainWalletAddress) {
+                console.warn(`Not recording the inter-state transfer of ${oldRegNumber} on-chain: ${ownerUser?.name || "the owner"} has no wallet address linked to the account yet.`);
+            } else {
+                blockchainTxHash = await registerVehicleTransferOnChain(
+                    oldRegNumber,
+                    newRegNumber,
+                    ownerUser.blockchainWalletAddress,
+                    "inter_state_transfer"
+                );
             }
-            await vehicle.save();
+            if (blockchainTxHash) {
+                vehicle.blockchainTxHash = blockchainTxHash;
+                const ownershipHistoryEntry = vehicle.ownershipHistory[vehicle.ownershipHistory.length - 1];
+                if (ownershipHistoryEntry) {
+                    ownershipHistoryEntry.blockchainTxHash = blockchainTxHash;
+                }
+                await vehicle.save();
+            }
         } catch (blockchainErr) {
             console.error("Blockchain registration error:", blockchainErr.message);
         }

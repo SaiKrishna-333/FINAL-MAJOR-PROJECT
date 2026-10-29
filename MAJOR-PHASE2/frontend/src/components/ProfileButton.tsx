@@ -71,7 +71,7 @@ export default function ProfileButton() {
           justifyContent: "center",
           background: photoUrl
             ? "transparent"
-            : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            : "linear-gradient(135deg, #1e5aa8 0%, #16437e 100%)",
         }}
       >
         {photoUrl ? (

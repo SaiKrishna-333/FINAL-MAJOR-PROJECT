@@ -5,11 +5,12 @@ import { TheftReport } from "../models/TheftReport.js";
 import { OwnershipHistory } from "../models/OwnershipHistory.js";
 import { User } from "../models/User.js";
 import { getCurrentOwnerFromChain } from "../services/blockchainService.js";
+import { maskAadhaar } from "../utils/masking.js";
 
 const router = express.Router();
 
-// Real-time vehicle verification for law enforcement
-router.get("/vehicle/:regNumber", authRequired, requireRole("police", "rto"), async (req, res) => {
+// Real-time vehicle verification for law enforcement, RTO officers and dealers
+router.get("/vehicle/:regNumber", authRequired, requireRole("police", "rto", "dealer"), async (req, res) => {
     try {
         const { regNumber } = req.params;
 
@@ -64,7 +65,9 @@ router.get("/vehicle/:regNumber", authRequired, requireRole("police", "rto"), as
             } : null,
             currentOwner: vehicle.currentOwner ? {
                 name: vehicle.currentOwner.name,
-                aadhaarNumber: vehicle.currentOwner.aadhaarNumber,
+                // A verification screen needs to identify the holder, not disclose
+                // a twelve-digit identity number to every searcher.
+                aadhaarNumber: maskAadhaar(vehicle.currentOwner.aadhaarNumber),
                 dlNumber: vehicle.currentOwner.dlNumber
             } : null,
             ownershipHistory: ownershipHistory.map(record => ({
@@ -78,6 +81,16 @@ router.get("/vehicle/:regNumber", authRequired, requireRole("police", "rto"), as
             lastVerified: vehicle.lastVerified,
             blockchainTxHash: vehicle.blockchainTxHash
         };
+
+        // Dealers may confirm that a vehicle is clean and on-chain verified, but they
+        // are not entitled to the registered owner's identity - disclosure for them
+        // stays minimal (privacy-preserving verification principle).
+        if (req.user.role === "dealer") {
+            verificationResponse.currentOwner = null;
+            verificationResponse.ownershipHistory = verificationResponse.ownershipHistory.map(
+                ({ from, to, ...rest }) => rest
+            );
+        }
 
         res.json(verificationResponse);
     } catch (err) {
@@ -133,7 +146,7 @@ router.get("/person/:identifier", authRequired, requireRole("police", "rto"), as
             person: {
                 name: user.name,
                 email: user.email,
-                aadhaarNumber: user.aadhaarNumber,
+                aadhaarNumber: maskAadhaar(user.aadhaarNumber),
                 dlNumber: user.dlNumber,
                 role: user.role,
                 verificationStatus: user.verificationStatus

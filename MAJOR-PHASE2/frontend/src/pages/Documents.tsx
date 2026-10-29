@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/useAuth";
 import { useNavigate } from "react-router-dom";
+import DashboardLayout from "../components/DashboardLayout";
+import VehicleDocuments from "../components/VehicleDocuments";
+import { formatDate } from "../lib/display";
 
 interface RegistrationCertificate {
   id: string;
@@ -43,9 +46,9 @@ const Documents = () => {
       const response = await api.get("/documents/user-documents");
       setDocuments(response.data);
       setError("");
-    } catch (err: unknown) {
+    } catch {
+      // The error banner below is the user-facing signal; nothing goes to the log.
       setError("Failed to load documents");
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -55,12 +58,10 @@ const Documents = () => {
     fetchUserDocuments();
   }, [fetchUserDocuments]);
 
-  const handleDownload = (docType: string, docId: string) => {
-    alert(
-      `In a real application, this would download the ${docType} document with ID: ${docId}.`
-    );
-    // In a real implementation, this would generate and download the actual document
-    console.log(`Downloading ${docType} document with ID: ${docId}`);
+  // The certificates and invoices each have a printable view in the app, so the
+  // actions navigate there instead of pretending to download a file.
+  const handleViewRegistrationCertificate = (vehicleId: string) => {
+    navigate(`/rc-card/${vehicleId}`);
   };
 
   if (loading) {
@@ -89,170 +90,162 @@ const Documents = () => {
   }
 
   return (
-    <div className="container">
-      <div className="header-enhanced">
-        <div className="container">
-          <h1>Your Documents</h1>
-          <p>Welcome to your document management portal</p>
+    <DashboardLayout
+      title="My Documents"
+      subtitle="Registration certificates, transfer certificates and invoices"
+    >
+      <div className="container">
+        <VehicleDocuments />
+
+        <div className="card">
+          <h2>Registration Certificates</h2>
+          {documents?.registrationCertificates &&
+          documents.registrationCertificates.length > 0 ? (
+            <div className="table-responsive">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Reg Number</th>
+                    <th>Vehicle</th>
+                    <th>Type</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {documents.registrationCertificates.map(
+                    (rc: RegistrationCertificate) => (
+                      <tr key={rc.id}>
+                        <td>{rc.regNumber || "N/A"}</td>
+                        <td>{rc.vehicle}</td>
+                        <td>{rc.type}</td>
+                        <td>
+                          <button
+                            className="btn btn-primary"
+                            onClick={() =>
+                              handleViewRegistrationCertificate(rc.id)
+                            }
+                          >
+                            View RC
+                          </button>
+                        </td>
+                      </tr>
+                    ),
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p>No registration certificates found.</p>
+          )}
         </div>
-      </div>
 
-      <div className="card">
-        <h2>Registration Certificates</h2>
-        {documents?.registrationCertificates &&
-        documents.registrationCertificates.length > 0 ? (
-          <div className="table-responsive">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Reg Number</th>
-                  <th>Vehicle</th>
-                  <th>Type</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {documents.registrationCertificates.map(
-                  (rc: RegistrationCertificate) => (
-                    <tr key={rc.id}>
-                      <td>{rc.regNumber || "N/A"}</td>
-                      <td>{rc.vehicle}</td>
-                      <td>{rc.type}</td>
+        <div className="card">
+          <h2>Transfer Certificates</h2>
+          {documents?.transferCertificates &&
+          documents.transferCertificates.length > 0 ? (
+            <div className="table-responsive">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Vehicle</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {documents.transferCertificates.map(
+                    (tc: TransferCertificate) => (
+                      <tr key={tc.id}>
+                        <td>{tc.vehicle}</td>
+                        <td>
+                          <span
+                            className={`badge ${
+                              tc.status === "approved"
+                                ? "success"
+                                : tc.status === "rejected"
+                                  ? "danger"
+                                  : "warning"
+                            }`}
+                          >
+                            {tc.status.charAt(0).toUpperCase() +
+                              tc.status.slice(1)}
+                          </span>
+                        </td>
+                        <td>{formatDate(tc.date)}</td>
+                        <td>
+                          {tc.status === "approved"
+                            ? "Issued"
+                            : tc.status === "rejected"
+                              ? "Not issued"
+                              : "Awaiting RTO approval"}
+                        </td>
+                      </tr>
+                    ),
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p>No transfer certificates found.</p>
+          )}
+        </div>
+
+        <div className="card">
+          <h2>Invoices</h2>
+          {documents?.invoices && documents.invoices.length > 0 ? (
+            <div className="table-responsive">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Invoice No.</th>
+                    <th>Vehicle</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {documents.invoices.map((invoice: Invoice) => (
+                    <tr key={invoice.id}>
                       <td>
-                        <button
-                          className="btn btn-primary"
-                          onClick={() => handleDownload("RC", rc.id)}
-                        >
-                          Download RC
-                        </button>
+                        {invoice.invoiceNumber || "Number not recorded"}
                       </td>
-                    </tr>
-                  )
-                )}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p>No registration certificates found.</p>
-        )}
-      </div>
-
-      <div className="card">
-        <h2>Transfer Certificates</h2>
-        {documents?.transferCertificates &&
-        documents.transferCertificates.length > 0 ? (
-          <div className="table-responsive">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Vehicle</th>
-                  <th>Status</th>
-                  <th>Date</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {documents.transferCertificates.map(
-                  (tc: TransferCertificate) => (
-                    <tr key={tc.id}>
-                      <td>{tc.vehicle}</td>
+                      <td>{invoice.vehicle}</td>
                       <td>
                         <span
                           className={`badge ${
-                            tc.status === "approved"
+                            invoice.status === "approved"
                               ? "success"
-                              : tc.status === "rejected"
-                              ? "danger"
-                              : "warning"
+                              : invoice.status === "rejected"
+                                ? "danger"
+                                : "warning"
                           }`}
                         >
-                          {tc.status.charAt(0).toUpperCase() +
-                            tc.status.slice(1)}
+                          {invoice.status.charAt(0).toUpperCase() +
+                            invoice.status.slice(1)}
                         </span>
                       </td>
-                      <td>{new Date(tc.date).toLocaleDateString()}</td>
+                      <td>{formatDate(invoice.date)}</td>
                       <td>
                         <button
                           className="btn btn-primary"
-                          onClick={() =>
-                            handleDownload("Transfer Certificate", tc.id)
-                          }
+                          onClick={() => navigate(`/invoice/${invoice.id}`)}
                         >
-                          Download TC
+                          View Invoice
                         </button>
                       </td>
                     </tr>
-                  )
-                )}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p>No transfer certificates found.</p>
-        )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p>No invoices found.</p>
+          )}
+        </div>
       </div>
-
-      <div className="card">
-        <h2>Invoices</h2>
-        {documents?.invoices && documents.invoices.length > 0 ? (
-          <div className="table-responsive">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Invoice No.</th>
-                  <th>Vehicle</th>
-                  <th>Status</th>
-                  <th>Date</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {documents.invoices.map((invoice: Invoice) => (
-                  <tr key={invoice.id}>
-                    <td>
-                      {invoice.invoiceNumber || invoice.id.substring(0, 8)}
-                    </td>
-                    <td>{invoice.vehicle}</td>
-                    <td>
-                      <span
-                        className={`badge ${
-                          invoice.status === "approved"
-                            ? "success"
-                            : invoice.status === "rejected"
-                            ? "danger"
-                            : "warning"
-                        }`}
-                      >
-                        {invoice.status.charAt(0).toUpperCase() +
-                          invoice.status.slice(1)}
-                      </span>
-                    </td>
-                    <td>{new Date(invoice.date).toLocaleDateString()}</td>
-                    <td>
-                      <button
-                        className="btn btn-info"
-                        onClick={() => navigate(`/invoice/${invoice.id}`)}
-                        style={{ marginRight: "8px" }}
-                      >
-                        View Invoice
-                      </button>
-                      <button
-                        className="btn btn-primary"
-                        onClick={() => handleDownload("Invoice", invoice.id)}
-                      >
-                        Download
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p>No invoices found.</p>
-        )}
-      </div>
-    </div>
+    </DashboardLayout>
   );
 };
 

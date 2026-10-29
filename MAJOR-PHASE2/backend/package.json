@@ -1,15 +1,36 @@
 {
-  "name": "backend",
+  "name": "biochain-rto-backend",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "seed:users": "node src/seed-demo-users.js",
+    "seed:idcards": "node src/seed-id-cards.js",
+    "seed:intelligence": "node src/seed-vehicle-intelligence-demo.js",
+    "backfill:rc": "node src/backfill-registration-facts.js",
+    "audit": "node src/audit-database.js",
+    "audit:fix": "node src/audit-database.js --fix --fix-legacy",
+    "audit:chain": "node src/audit-database.js --fix --fix-legacy --verify-chain",
+    "test": "node src/test-all-features.js",
+    "test:all": "node src/test-all-features.js && node src/test-feature-suite.js && node src/test-document-store.js && node src/test-accident-evidence.js && node src/test-idcard-ocr.js && node src/test-intel-request-resale.js && node src/test-vehicle-intelligence.js",
+    "test:features": "node src/test-feature-suite.js",
+    "test:documents": "node src/test-document-store.js",
+    "test:accidents": "node src/test-accident-evidence.js",
+    "test:idcard": "node src/test-idcard-ocr.js",
+    "test:intel": "node src/test-intel-request-resale.js",
+    "test:intelligence": "node src/test-vehicle-intelligence.js"
   },
-  "keywords": [],
+  "keywords": [
+    "rto",
+    "vehicle-registry",
+    "biometric",
+    "blockchain",
+    "express"
+  ],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "BioChain RTO API: biometric-DID identity, tamper-evident vehicle records and Polygon Amoy anchoring.",
   "dependencies": {
     "axios": "^1.6.0",
     "bcryptjs": "^3.0.3",
@@ -24,6 +45,7 @@
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.7",
     "socket.io": "^4.7.2",
+    "tesseract.js": "^7.0.0",
     "twilio": "^4.19.0"
   },
   "devDependencies": {

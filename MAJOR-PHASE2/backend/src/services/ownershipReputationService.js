@@ -475,11 +475,11 @@ const generateRecommendations = (score) => {
  * Get reputation score badge/color
  */
 export const getReputationBadge = (score) => {
-    if (score >= 90) return { badge: "🏆", color: "gold", label: "Excellent" };
-    if (score >= 70) return { badge: "✅", color: "green", label: "Good" };
-    if (score >= 50) return { badge: "⚠️", color: "yellow", label: "Average" };
-    if (score >= 30) return { badge: "❗", color: "orange", label: "Below Average" };
-    return { badge: "🚫", color: "red", label: "Poor" };
+    if (score >= 90) return { badge: "", color: "gold", label: "Excellent" };
+    if (score >= 70) return { badge: "", color: "green", label: "Good" };
+    if (score >= 50) return { badge: "", color: "yellow", label: "Average" };
+    if (score >= 30) return { badge: "", color: "orange", label: "Below Average" };
+    return { badge: "", color: "red", label: "Poor" };
 };
 
 export default {

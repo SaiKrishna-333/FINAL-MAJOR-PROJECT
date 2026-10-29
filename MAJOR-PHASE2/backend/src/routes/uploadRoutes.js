@@ -1,10 +1,98 @@
 import express from "express";
+import crypto from "crypto";
+import fs from "fs";
 import multer from "multer";
 import { authRequired, requireRole } from "../middleware/authMiddleware.js";
 import { Vehicle } from "../models/Vehicle.js";
-import { storeVehicleDocument, getIPFSUrl } from "../services/ipfsService.js";
+import {
+    storeVehicleDocument,
+    getIPFSUrl,
+    resolveVaultFile,
+    VAULT_PREFIX,
+} from "../services/ipfsService.js";
 
 const router = express.Router();
+
+// Storage now degrades to the local verified vault instead of refusing the
+// upload, so reaching this handler means the vault itself could not write - a
+// real fault worth reporting, with the reason rather than a canned message.
+const storageUnavailable = (res, err) =>
+    res.status(500).json({
+        message:
+            "The document could not be stored, so nothing was recorded. Check that the application can write to backend/uploads/documents.",
+        error: err.message
+    });
+
+// Which vehicle (if any) records this reference, so a vaulted document is only
+// readable by someone who may already see the vehicle's documents.
+const REFERENCE_PATHS = [
+    "ipfsDocuments.rcCertificate",
+    "ipfsDocuments.insurance",
+    "ipfsDocuments.puc",
+    "ipfsDocuments.transferForms",
+    "ipfsDocuments.invoice",
+    "ipfsDocuments.otherDocuments",
+    "documents.ipfsHash",
+];
+
+const mayReadReference = async (reference, vaultEntry, user) => {
+    // The person who stored it always gets it back - theft reports and
+    // inheritance packs are uploaded before any vehicle row references them.
+    if (vaultEntry.uploadedBy && String(vaultEntry.uploadedBy) === String(user.id)) return true;
+    const vehicle = await Vehicle.findOne({
+        $or: REFERENCE_PATHS.map((p) => ({ [p]: reference })),
+    }).select("currentOwner");
+    if (!vehicle) return false;
+    return (
+        String(vehicle.currentOwner) === String(user.id) ||
+        user.role === "rto" ||
+        user.role === "police"
+    );
+};
+
+/**
+ * Fetch a document that the local verified vault holds.
+ * GET /api/upload/document/:sha256
+ *
+ * The bytes are re-hashed on the way out: serving stops if the file on disk no
+ * longer matches the hash recorded against it, which is the whole point of
+ * content addressing.
+ */
+router.get("/document/:sha256", authRequired, async (req, res) => {
+    try {
+        const digest = String(req.params.sha256 || "").toLowerCase();
+        if (!/^[0-9a-f]{64}$/.test(digest)) {
+            return res.status(400).json({ message: "Not a document hash" });
+        }
+        const reference = `${VAULT_PREFIX}${digest}`;
+        const entry = await resolveVaultFile(reference);
+        if (!entry) {
+            return res.status(404).json({
+                message: "No stored file matches that hash - it was not uploaded here, or its bytes were removed.",
+            });
+        }
+        if (!(await mayReadReference(reference, entry, req.user))) {
+            return res.status(403).json({ message: "Not authorized to view this document" });
+        }
+
+        const buffer = await fs.promises.readFile(entry.filePath);
+        if (crypto.createHash("sha256").update(buffer).digest("hex") !== digest) {
+            return res.status(409).json({
+                message: "The stored bytes no longer match their recorded hash. This document has been altered on disk - treat it as untrusted.",
+            });
+        }
+
+        res.setHeader("Content-Type", entry.mimeType || "application/octet-stream");
+        res.setHeader("Content-Length", buffer.length);
+        res.setHeader("Content-Disposition", `inline; filename="${(entry.fileName || digest).replace(/[^\w.\- ]/g, "_")}"`);
+        // Tamper-evident proof travels with the bytes.
+        res.setHeader("X-Content-Sha256", digest);
+        return res.send(buffer);
+    } catch (err) {
+        console.error("Document download error:", err.message);
+        return res.status(500).json({ message: "Server error" });
+    }
+});
 
 // Configure multer for memory storage
 const upload = multer({
@@ -113,12 +201,15 @@ router.post(
                 documentType,
                 ipfsHash: result.ipfsHash,
                 ipfsUrl: result.ipfsUrl,
+                // Where the bytes actually live, so the UI can say "local verified
+                // store" instead of implying they are on a public IPFS gateway.
+                storage: result.storage,
                 storedAt: result.storedAt
             });
 
         } catch (err) {
             console.error("Document upload error:", err.message);
-            res.status(500).json({ message: "Failed to upload document", error: err.message });
+            storageUnavailable(res, err);
         }
     }
 );
@@ -251,7 +342,7 @@ router.post(
 
         } catch (err) {
             console.error("Inheritance document upload error:", err.message);
-            res.status(500).json({ message: "Failed to upload documents" });
+            storageUnavailable(res, err);
         }
     }
 );
@@ -303,7 +394,7 @@ router.post(
 
         } catch (err) {
             console.error("Theft document upload error:", err.message);
-            res.status(500).json({ message: "Failed to upload documents" });
+            storageUnavailable(res, err);
         }
     }
 );

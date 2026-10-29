@@ -4,7 +4,16 @@ const notificationSchema = new mongoose.Schema(
     {
         type: {
             type: String,
-            enum: ["theft_alert", "transfer_request", "approval", "rejection", "system"],
+            enum: [
+                "theft_alert", "transfer_request", "approval", "rejection", "system",
+                // Workflow types actually emitted by routes/services
+                "transfer-offer", "transfer-approved", "registration-approved", "request-rejected",
+                "intel-request", "intel-response",
+                // Owner-submitted accident evidence awaiting an officer's check
+                "accident-evidence",
+                // Predictive theft engine froze the vehicle pending an officer's review
+                "auto-freeze"
+            ],
             required: true
         },
         title: { type: String, required: true },
@@ -16,7 +25,10 @@ const notificationSchema = new mongoose.Schema(
         },
         recipientRole: {
             type: String,
-            enum: ["dealer", "owner", "rto", "police", "admin", "all"],
+            // Every role a User can have, so a notification to a workshop account
+            // is never rejected by validation - that silently cost workshops their
+            // incoming intel requests.
+            enum: ["dealer", "owner", "rto", "police", "admin", "workshop", "all"],
             required: true
         },
         relatedVehicle: {
@@ -29,7 +41,9 @@ const notificationSchema = new mongoose.Schema(
         },
         requestModel: {
             type: String,
-            enum: ["Request", "InheritanceTransfer", "TheftReport"]
+            // Whichever collection relatedRequest points at must be named here, or
+            // the reference can never be populated back into a real record.
+            enum: ["Request", "InheritanceTransfer", "TheftReport", "VehicleIntelRequest"]
         },
         status: {
             type: String,

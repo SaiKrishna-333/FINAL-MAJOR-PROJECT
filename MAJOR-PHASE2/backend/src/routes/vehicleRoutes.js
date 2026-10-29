@@ -3,6 +3,7 @@ import { authRequired, requireRole } from "../middleware/authMiddleware.js";
 import { Vehicle } from "../models/Vehicle.js";
 import { OwnershipHistory } from "../models/OwnershipHistory.js";
 import { User } from "../models/User.js";
+import { maskUserAadhaar } from "../utils/masking.js";
 
 const router = express.Router();
 
@@ -93,6 +94,10 @@ router.get("/search", authRequired, requireRole("rto", "police"), async (req, re
             Vehicle.countDocuments(searchCriteria)
         ]);
 
+        // A register search identifies the holder; it does not hand out their
+        // identity number to whoever typed a filter.
+        vehicles.forEach((vehicle) => maskUserAadhaar(vehicle.currentOwner));
+
         res.json({
             vehicles,
             pagination: {
@@ -123,37 +128,29 @@ router.get("/makes", authRequired, async (req, res) => {
 router.get("/:id", authRequired, async (req, res) => {
     try {
         const { id } = req.params;
-        console.log(`📋 Fetching vehicle ${id} with populated currentOwner...`);
 
         const vehicle = await Vehicle.findById(id).populate("currentOwner", "name email address aadhaarNumber dlNumber phone");
 
         if (!vehicle) {
-            console.error(`❌ Vehicle ${id} not found`);
+            console.error(`Vehicle ${id} not found`);
             return res.status(404).json({ message: "Vehicle not found" });
         }
-
-        console.log(`✅ Vehicle found: ${vehicle.regNumber}`);
-        console.log(`📋 currentOwner populated:`, vehicle.currentOwner ? {
-            _id: vehicle.currentOwner._id,
-            name: vehicle.currentOwner.name,
-            email: vehicle.currentOwner.email,
-            address: vehicle.currentOwner.address,
-        } : 'null');
-        console.log(`🔗 blockchainTxHash:`, vehicle.blockchainTxHash || 'not set');
 
         // Check if user owns this vehicle or has permission
         const isOwner = String(vehicle.currentOwner?._id || vehicle.currentOwner) === String(req.user.id);
         const isAdmin = req.user.role === "rto" || req.user.role === "police";
 
         if (!isOwner && !isAdmin) {
-            console.warn(`⚠️ User ${req.user.id} not authorized to view vehicle ${id}`);
+            console.warn(`User ${req.user.id} not authorized to view vehicle ${id}`);
             return res.status(403).json({ message: "Not authorized to view this vehicle" });
         }
 
-        console.log(`✅ Sending vehicle data for ${vehicle.regNumber}`);
+        // The holder sees their own number; an officer sees enough to recognise it.
+        if (!isOwner) maskUserAadhaar(vehicle.currentOwner);
+
         res.json(vehicle);
     } catch (err) {
-        console.error("❌ get vehicle by id error:", err.message);
+        console.error("get vehicle by id error:", err.message);
         res.status(500).json({ message: "Server error" });
     }
 });
@@ -186,25 +183,19 @@ router.post("/:id/sync-blockchain", authRequired, requireRole("rto"), async (req
             return res.status(404).json({ message: "Vehicle not found" });
         }
 
-        console.log(`\n🔄 SYNCING VEHICLE TO BLOCKCHAIN: ${vehicle.regNumber}`);
-        console.log(`   Owner: ${vehicle.currentOwner?.name}`);
-
         // Import blockchain service
         const { registerVehicleOnChain } = await import("../services/blockchainService.js");
 
-        // Get owner address
-        let ownerAddress;
-        if (vehicle.currentOwner?.blockchainWalletAddress) {
-            ownerAddress = vehicle.currentOwner.blockchainWalletAddress;
-        } else {
-            // Use admin wallet as fallback for now
-            ownerAddress = "0xF7167C4089CA6e6374D9B42dE09b97DC416cF725";
+        // The chain record must name the real owner. Registering under some other
+        // wallet would put an ownership claim on-chain that the database contradicts.
+        const ownerAddress = vehicle.currentOwner?.blockchainWalletAddress;
+        if (!ownerAddress) {
+            return res.status(409).json({
+                message: `The owner of ${vehicle.regNumber} has no wallet address yet, so the vehicle cannot be anchored in their name. Re-run the identity issuance for that owner and sync again.`,
+                owner: vehicle.currentOwner?.email || null
+            });
         }
 
-        console.log(`   Owner Address: ${ownerAddress}`);
-        console.log(`   Registering on blockchain...`);
-
-        // Register on blockchain
         const txHash = await registerVehicleOnChain(
             vehicle.regNumber,
             vehicle.chassisNumber,
@@ -215,15 +206,15 @@ router.post("/:id/sync-blockchain", authRequired, requireRole("rto"), async (req
             ownerAddress
         );
 
-        console.log(`   ✅ Transaction successful: ${txHash}`);
-
-        // Update vehicle with blockchain TX hash
-        vehicle.blockchainTxHash = txHash;
+        // Update vehicle with blockchain TX hash (keep any previous real hash)
+        if (txHash) vehicle.blockchainTxHash = txHash;
         await vehicle.save();
 
         res.json({
-            message: "Vehicle synced to blockchain successfully",
-            blockchainTxHash: txHash
+            message: txHash
+                ? "Vehicle synced to blockchain successfully"
+                : "Vehicle is already recorded on the blockchain or the chain was unreachable - no new transaction was fabricated.",
+            blockchainTxHash: txHash || vehicle.blockchainTxHash || null
         });
     } catch (err) {
         console.error("Sync blockchain error:", err.message);

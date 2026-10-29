@@ -119,6 +119,8 @@ const challanSchema = new mongoose.Schema(
 
 // Index for efficient queries
 challanSchema.index({ vehicle: 1, paymentStatus: 1 });
+// Officer queues and dispute screens filter on challan status.
+challanSchema.index({ status: 1, violationDate: -1 });
 challanSchema.index({ regNumber: 1 });
 challanSchema.index({ issuingOfficer: 1 });
 

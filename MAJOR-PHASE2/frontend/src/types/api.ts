@@ -100,6 +100,16 @@ export interface TransferRequest {
   remarks?: string;
   createdAt?: string;
   updatedAt?: string;
+  // Resale offer between owners - buyer must accept before RTO finalization
+  offer?: {
+    salePrice?: number;
+    message?: string;
+    attachIntel?: boolean;
+    buyerAccepted?: boolean;
+    buyerAcceptedAt?: string;
+    declinedAt?: string;
+    declineReason?: string;
+  };
 }
 
 /* ========= INHERITANCE TRANSFER ========= */
@@ -114,10 +124,17 @@ export interface InheritanceRequest {
   courtOrderNumber?: string;
   documents: {
     documentType: string;
-    documentUrl: string;
+    // null on claims filed before documents were stored, so the officer UI can
+    // say "no stored copy" instead of offering a button that cannot work.
+    documentUrl: string | null;
     verified: boolean;
   }[];
-  status: "submitted" | "documents_verified" | "rto_review" | "approved" | "rejected";
+  status:
+    | "submitted"
+    | "documents_verified"
+    | "rto_review"
+    | "approved"
+    | "rejected";
   remarks?: string;
   createdAt?: string;
   updatedAt?: string;

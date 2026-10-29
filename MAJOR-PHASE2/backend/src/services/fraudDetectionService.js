@@ -316,10 +316,12 @@ export const getFraudDashboardData = async () => {
 
         const analyzedTransactions = await Promise.all(
             recentTransactions.map(async (tx) => {
+                // Guard: populated refs can be null (deleted vehicle, dealer
+                // registrations have no buyer) - reading ._id on null crashed the dashboard
                 const analysis = await analyzeTransaction({
-                    vehicleId: tx.vehicle._id,
+                    vehicleId: tx.vehicle?._id,
                     sellerId: tx.seller?._id || tx.dealer?._id,
-                    buyerId: tx.buyer._id,
+                    buyerId: tx.buyer?._id,
                     type: tx.type
                 });
                 return {

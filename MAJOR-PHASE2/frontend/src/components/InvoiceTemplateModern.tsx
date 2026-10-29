@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import { formatDate, maskAadhaar } from "../lib/display";
 
 interface InvoiceData {
   invoiceNumber: string;
@@ -83,9 +84,11 @@ export default function InvoiceTemplateModern({
       <html>
         <head>
           <title>Invoice ${data.invoiceNumber}</title>
+          <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Noto+Serif:wght@700&display=swap" rel="stylesheet">
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: Arial, sans-serif; padding: 20px; background: #fff; color: #333; }
+            body { font-family: 'Atkinson Hyperlegible', Arial, sans-serif; padding: 20px; background: #fff; color: #333; }
+            h1, h2, h3 { font-family: 'Noto Serif', Georgia, serif; }
             .invoice-container-modern { max-width: 800px; margin: 0 auto; }
             .modern-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
             .header-left h1 { font-size: 36px; color: #000; margin-bottom: 15px; }
@@ -97,7 +100,7 @@ export default function InvoiceTemplateModern({
             .meta-row { display: flex; justify-content: flex-end; gap: 15px; margin: 5px 0; }
             .meta-row .label { font-weight: bold; color: #666; min-width: 120px; }
             .meta-row .value { color: #333; }
-            .blue-divider { height: 8px; background: #00A8E8; margin: 20px 0; }
+            .blue-divider { height: 8px; background: #1e5aa8; margin: 20px 0; }
             .customer-section-modern { margin: 25px 0; }
             .customer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
             .info-group { display: flex; flex-direction: column; gap: 8px; }
@@ -106,10 +109,10 @@ export default function InvoiceTemplateModern({
             .info-row .value { color: #666; }
             .section-title { font-size: 16px; color: #333; margin: 20px 0 10px 0; }
             .modern-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-            .modern-table th { background: #00A8E8; color: #fff; padding: 12px; text-align: left; font-size: 13px; }
+            .modern-table th { background: #1e5aa8; color: #fff; padding: 12px; text-align: left; font-size: 13px; }
             .modern-table td { padding: 10px 12px; border-bottom: 1px solid #eee; font-size: 13px; }
             .modern-pricing-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            .modern-pricing-table th { background: #00A8E8; color: #fff; padding: 12px; text-align: left; }
+            .modern-pricing-table th { background: #1e5aa8; color: #fff; padding: 12px; text-align: left; }
             .modern-pricing-table td { padding: 10px 12px; border-bottom: 1px solid #eee; }
             .total-row { background: #f0f8ff; font-weight: bold; font-size: 16px; }
             .payment-section-modern { margin: 25px 0; }
@@ -154,26 +157,26 @@ export default function InvoiceTemplateModern({
                 data.verificationStatus === "verified"
                   ? "verified"
                   : data.verificationStatus === "rejected"
-                  ? "rejected"
-                  : "pending"
+                    ? "rejected"
+                    : "pending"
               }`}
             >
-              {data.verificationStatus === "pending" && "⏳ Pending"}
-              {data.verificationStatus === "verified" && "✅ Verified"}
-              {data.verificationStatus === "rejected" && "❌ Rejected"}
+              {data.verificationStatus === "pending" && "Pending"}
+              {data.verificationStatus === "verified" && "Verified"}
+              {data.verificationStatus === "rejected" && "Rejected"}
             </span>
           </div>
           <div className="button-section">
             <button className="btn btn-primary" onClick={handlePrint}>
-              🖨️ Print Invoice
+              Print Invoice
             </button>
             {userRole === "rto" && data.verificationStatus === "pending" && (
               <>
                 <button className="btn btn-success" onClick={onVerify}>
-                  ✓ Verify Invoice
+                  Verify Invoice
                 </button>
                 <button className="btn btn-danger" onClick={onReject}>
-                  ✕ Reject
+                  Reject
                 </button>
               </>
             )}
@@ -201,7 +204,22 @@ export default function InvoiceTemplateModern({
             </div>
             <div className="header-right">
               <div className="logo-section-modern">
-                <div className="logo-icon">🚗</div>
+                <div
+                  className="logo-icon"
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: "50%",
+                    background: "#1e5aa8",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: "bold",
+                  }}
+                >
+                  IN
+                </div>
                 <h2 className="brand-name">Cars</h2>
               </div>
               <div className="invoice-meta">
@@ -211,13 +229,7 @@ export default function InvoiceTemplateModern({
                 </div>
                 <div className="meta-row">
                   <span className="label">Invoice Date</span>
-                  <span className="value">
-                    {new Date(data.invoiceDate).toLocaleDateString("en-US", {
-                      month: "long",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </span>
+                  <span className="value">{formatDate(data.invoiceDate)}</span>
                 </div>
               </div>
             </div>
@@ -243,8 +255,18 @@ export default function InvoiceTemplateModern({
               </div>
               <div className="info-group">
                 <div className="info-row">
-                  <span className="label-bold">Phone Number</span>
-                  <span className="value">{data.buyerDL || "N/A"}</span>
+                  <span className="label-bold">Driving Licence</span>
+                  <span className="value">
+                    {data.buyerDL || "Not recorded"}
+                  </span>
+                </div>
+                <div className="info-row">
+                  <span className="label-bold">Aadhaar (masked)</span>
+                  <span className="value">
+                    {data.buyerAadhaar
+                      ? maskAadhaar(data.buyerAadhaar)
+                      : "Not recorded"}
+                  </span>
                 </div>
                 <div className="info-row">
                   <span className="label-bold">Email</span>
@@ -260,7 +282,7 @@ export default function InvoiceTemplateModern({
             <table className="modern-table">
               <thead>
                 <tr>
-                  <th>Car Description</th>
+                  <th>Vehicle Description</th>
                   <th>Details</th>
                   <th>Specification</th>
                   <th>Value</th>
@@ -357,9 +379,10 @@ export default function InvoiceTemplateModern({
             </table>
           </div>
 
-          {/* Payment Method */}
+          {/* Payment Method - the invoice records the mode the dealer declared and
+              whether money was actually received, nothing else. */}
           <div className="payment-section-modern">
-            <h4 className="section-subtitle">Payment Method:</h4>
+            <h4 className="section-subtitle">Payment:</h4>
             <div className="payment-options">
               <div className="payment-option">
                 <input
@@ -367,32 +390,30 @@ export default function InvoiceTemplateModern({
                   checked={data.paymentMode === "Full Payment"}
                   readOnly
                 />
-                <label>Cash</label>
+                <label>Full Payment</label>
               </div>
               <div className="payment-option">
                 <input
                   type="checkbox"
-                  checked={data.paymentMode.includes("Loan")}
+                  checked={data.paymentMode === "Loan"}
                   readOnly
                 />
-                <label>Credit Card</label>
+                <label>Loan / Financing</label>
               </div>
               <div className="payment-option">
                 <input
                   type="checkbox"
-                  checked={data.paymentMode.includes("Loan")}
+                  checked={data.paymentMode === "Exchange"}
                   readOnly
                 />
-                <label>Bank Transfer</label>
+                <label>Exchange + Payment</label>
               </div>
-              <div className="payment-option">
-                <input
-                  type="checkbox"
-                  checked={data.paymentMode.includes("Exchange")}
-                  readOnly
-                />
-                <label>Online Payment</label>
-              </div>
+              <p style={{ margin: "8px 0 0", fontSize: "13px", color: "#555" }}>
+                The mode above is as declared by the dealer.{" "}
+                {data.paymentStatus === "Paid"
+                  ? "Payment has been received and recorded against this invoice."
+                  : "No payment has been recorded against this invoice yet."}
+              </p>
             </div>
           </div>
 
@@ -402,14 +423,17 @@ export default function InvoiceTemplateModern({
               <h4 className="footer-title">Payment Details:</h4>
               <div className="payment-info-detail">
                 <p>
-                  <strong>Payment Status:</strong> {data.paymentStatus}
+                  <strong>Payment Status:</strong>{" "}
+                  {data.paymentStatus === "Paid" ? "Paid" : "Payment pending"}
                 </p>
                 <p>
                   <strong>Payment Mode:</strong> {data.paymentMode}
                 </p>
                 {data.signatureHash && (
                   <p>
-                    <strong>Digital Signature:</strong>{" "}
+                    {/* A sha256 of the printed figures is a content fingerprint, not a
+                        signature issued by a certificate authority. */}
+                    <strong>Invoice Content Hash (SHA-256):</strong>{" "}
                     {data.signatureHash.substring(0, 20)}...
                   </p>
                 )}
@@ -428,7 +452,7 @@ export default function InvoiceTemplateModern({
                       rel="noopener noreferrer"
                       style={{ color: "#0066cc", textDecoration: "none" }}
                     >
-                      🔗 View on PolygonScan
+                      View on PolygonScan
                     </a>
                   </p>
                 )}
@@ -438,31 +462,26 @@ export default function InvoiceTemplateModern({
             <div className="footer-right">
               <div className="signature-area">
                 <p className="date-label">
-                  Date :{" "}
-                  {new Date(data.invoiceDate).toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
+                  Date : {formatDate(data.invoiceDate)}
                 </p>
                 <div className="signature-line">
                   {data.verificationStatus === "verified" ? (
                     <div
                       className="verified-stamp"
                       style={{
-                        color: "#10B981",
+                        color: "#0e7c3b",
                         fontSize: "24px",
                         fontWeight: "bold",
                       }}
                     >
-                      ✓ VERIFIED
+                      VERIFIED
                     </div>
                   ) : (
                     <div
                       className="signature-placeholder"
                       style={{ color: "#999" }}
                     >
-                      Signature
+                      Not yet verified
                     </div>
                   )}
                 </div>
@@ -500,11 +519,15 @@ export default function InvoiceTemplateModern({
               {data.verificationStatus === "verified" ? (
                 <div className="verified-badge">
                   <span style={{ fontWeight: "bold", fontSize: "16px" }}>
-                    ✓ VERIFIED BY RTO
+                    VERIFIED BY RTO
                   </span>
-                  {data.verifiedBy && (
+                  {data.verifiedBy ? (
                     <span style={{ display: "block", marginTop: "5px" }}>
                       By: {data.verifiedBy}
+                    </span>
+                  ) : (
+                    <span style={{ display: "block", marginTop: "5px" }}>
+                      Officer name not recorded
                     </span>
                   )}
                   {data.verifiedAt && (
@@ -515,18 +538,14 @@ export default function InvoiceTemplateModern({
                         fontSize: "12px",
                       }}
                     >
-                      {new Date(data.verifiedAt).toLocaleDateString("en-US", {
-                        month: "long",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                      {formatDate(data.verifiedAt)}
                     </span>
                   )}
                 </div>
               ) : (
                 <div className="rejected-badge">
                   <span style={{ fontWeight: "bold", fontSize: "16px" }}>
-                    ✕ REJECTED
+                    REJECTED
                   </span>
                   {data.verificationRemarks && (
                     <span

@@ -1,33 +1,33 @@
 import { useRef } from "react";
 import { useReactToPrint } from "react-to-print";
 import { QRCodeSVG } from "qrcode.react";
+import { formatDate, enumLabel, maskAadhaar } from "../lib/display";
 
+// A certificate may only print what the registry actually holds. Fields the
+// database has no value for are shown as "Not recorded"; nothing here falls
+// back to a plausible-looking sample.
 interface RCCertificateProps {
   vehicle: {
     regNumber: string;
-    chassisNumber: string;
-    engineNumber: string;
+    chassisNumber?: string;
+    engineNumber?: string;
     make: string;
     model: string;
-    year: number;
-    fuelType?: string;
-    vehicleClass?: string;
-    color?: string;
-    seatingCapacity?: number;
+    year?: number | string;
     status?: string;
   };
   owner: {
     name: string;
-    address: string;
+    address?: string;
     aadhaarNumber?: string;
   };
-  registrationDate: string;
-  validUpto: string;
-  rtoOffice: string;
+  registrationDate?: string;
+  validUpto?: string;
+  rtoOffice?: string;
+  issuedByOfficer?: string;
   blockchainTxHash?: string;
   insuranceValidUpto?: string;
   pucValidUpto?: string;
-  fitnessValidUpto?: string;
   ipfsHash?: string;
   biometricHash?: string;
   transferType?: "new" | "second-hand" | "inheritance";
@@ -39,31 +39,46 @@ export default function RCCertificate({
   registrationDate,
   validUpto,
   rtoOffice,
+  issuedByOfficer,
   blockchainTxHash,
+  insuranceValidUpto,
+  pucValidUpto,
   ipfsHash,
   biometricHash,
   transferType = "new",
 }: RCCertificateProps) {
   const printRef = useRef<HTMLDivElement>(null);
 
+  // One test decides every chain claim on this page: is there a real
+  // transaction hash against this record?
+  const hasChainRecord = Boolean(
+    blockchainTxHash && blockchainTxHash !== "0x0",
+  );
+
   const handlePrint = useReactToPrint({
     contentRef: printRef,
-    documentTitle: `RC_${vehicle.regNumber}`,
+    documentTitle: `RC_${vehicle.regNumber || "UNREGISTERED"}`,
   });
 
-  // Generate QR code data with all vehicle details
+  // The QR carries the record summary the certificate itself prints, so a scan
+  // shows exactly what this page shows - no more, no less.
   const qrData = JSON.stringify({
     regNumber: vehicle.regNumber,
-    chassisNumber: vehicle.chassisNumber,
-    engineNumber: vehicle.engineNumber,
+    chassisNumber: vehicle.chassisNumber || null,
+    engineNumber: vehicle.engineNumber || null,
     make: vehicle.make,
     model: vehicle.model,
-    year: vehicle.year,
+    year: vehicle.year ?? null,
     owner: owner.name,
-    registrationDate,
-    validUpto,
-    blockchainTxHash: blockchainTxHash || "PENDING",
-    status: blockchainTxHash ? "VERIFIED" : "PENDING_BLOCKCHAIN",
+    registrationDate: registrationDate || null,
+    validUpto: validUpto || null,
+    rtoOffice: rtoOffice || null,
+    issuedByOfficer: issuedByOfficer || null,
+    blockchainTxHash: hasChainRecord ? blockchainTxHash : null,
+    recordStatus: hasChainRecord
+      ? "COMMITTED_ON_CHAIN"
+      : "AWAITING_CHAIN_COMMIT",
+    status: vehicle.status || null,
   });
 
   const getTransferTypeLabel = () => {
@@ -101,19 +116,17 @@ export default function RCCertificate({
         <button className="btn btn-primary" onClick={handlePrint}>
           Download / Print RC
         </button>
-        {blockchainTxHash &&
-          blockchainTxHash !== "0x0" &&
-          blockchainTxHash !== "" && (
-            <button
-              className="btn btn-info"
-              onClick={() => {
-                const url = `https://amoy.polygonscan.com/tx/${blockchainTxHash}`;
-                window.open(url, "_blank", "noopener,noreferrer");
-              }}
-            >
-              View Blockchain
-            </button>
-          )}
+        {hasChainRecord && (
+          <button
+            className="btn btn-info"
+            onClick={() => {
+              const url = `https://amoy.polygonscan.com/tx/${blockchainTxHash}`;
+              window.open(url, "_blank", "noopener,noreferrer");
+            }}
+          >
+            View on Explorer
+          </button>
+        )}
       </div>
 
       {/* RC Certificate - Sovereign Dark Theme */}
@@ -137,18 +150,33 @@ export default function RCCertificate({
         {/* Certificate Title Section */}
         <div className="rc-title-section">
           <div className="rc-title-left">
-            <div className="rc-lock-icon">🔒</div>
             <div className="rc-title-text">
               <div className="rc-authority">
-                BIOCHAIN RTO AUTHORITY · BLOCKCHAIN ISSUED
+                {/* The chain wording follows the record: a committed record says
+                    so, one still waiting for its fee says that instead. */}
+                {hasChainRecord
+                  ? "BIOCHAIN RTO AUTHORITY · COMMITTED ON POLYGON AMOY"
+                  : "BIOCHAIN RTO AUTHORITY · CHAIN COMMIT PENDING"}
               </div>
               <h2 className="rc-title">Registration Certificate</h2>
               <div className="rc-subtitle">{getTransferTypeLabel()}</div>
             </div>
           </div>
           <div className="rc-title-right">
-            <span className="rc-status-active">Active</span>
-            <div className="rc-validity">Valid Lifetime</div>
+            <span
+              className={
+                vehicle.status === "active" || vehicle.status === "registered"
+                  ? "rc-status-active"
+                  : "rc-status-inactive"
+              }
+            >
+              {enumLabel(vehicle.status)}
+            </span>
+            <div className="rc-validity">
+              {validUpto
+                ? `Valid upto ${formatDate(validUpto)}`
+                : "Validity not recorded"}
+            </div>
           </div>
         </div>
 
@@ -168,20 +196,14 @@ export default function RCCertificate({
             <label>AADHAAR (MASKED)</label>
             <span className="rc-detail-value rc-mono">
               {owner.aadhaarNumber
-                ? `XXXX-XXXX-${owner.aadhaarNumber.slice(-4)}`
-                : "XXXX-XXXX-7821"}
+                ? maskAadhaar(owner.aadhaarNumber)
+                : "Not recorded"}
             </span>
           </div>
           <div className="rc-detail-item">
             <label>ISSUE DATE</label>
             <span className="rc-detail-value">
-              {registrationDate
-                ? new Date(registrationDate).toLocaleDateString("en-IN", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })
-                : "14 Mar 2025"}
+              {formatDate(registrationDate, "Not recorded")}
             </span>
           </div>
 
@@ -193,39 +215,46 @@ export default function RCCertificate({
           </div>
           <div className="rc-detail-item">
             <label>YEAR OF MANUFACTURE</label>
-            <span className="rc-detail-value">{vehicle.year}</span>
+            <span className="rc-detail-value">
+              {vehicle.year ?? "Not recorded"}
+            </span>
           </div>
           <div className="rc-detail-item">
             <label>ENGINE / MOTOR NO.</label>
             <span className="rc-detail-value rc-mono">
-              {vehicle.engineNumber || "EV-NX-0082741A"}
+              {vehicle.engineNumber || "Not recorded"}
             </span>
           </div>
 
           <div className="rc-detail-item">
             <label>CHASSIS NUMBER</label>
             <span className="rc-detail-value rc-mono">
-              {vehicle.chassisNumber || "MAT612EX3P2001234"}
+              {vehicle.chassisNumber || "Not recorded"}
             </span>
           </div>
           <div className="rc-detail-item">
-            <label>FUEL TYPE</label>
+            <label>INSURANCE UPTO</label>
             <span className="rc-detail-value">
-              {vehicle.fuelType || "Electric"}
+              {formatDate(insuranceValidUpto, "Not recorded")}
+            </span>
+          </div>
+          <div className="rc-detail-item">
+            <label>PUC UPTO</label>
+            <span className="rc-detail-value">
+              {formatDate(pucValidUpto, "Not recorded")}
             </span>
           </div>
           <div className="rc-detail-item">
             <label>RTO OFFICE</label>
-            <span className="rc-detail-value">{rtoOffice}</span>
+            <span className="rc-detail-value">
+              {rtoOffice || "Not recorded"}
+            </span>
           </div>
         </div>
 
         {/* Blockchain Record Section */}
         <div className="rc-blockchain-section">
-          <h4 className="rc-blockchain-title">
-            <span className="rc-blockchain-icon">⚛</span>
-            BLOCKCHAIN RECORD
-          </h4>
+          <h4 className="rc-blockchain-title">BLOCKCHAIN RECORD</h4>
           <div className="rc-blockchain-grid">
             {blockchainTxHash && blockchainTxHash !== "0x0" && (
               <div className="rc-blockchain-item">
@@ -238,10 +267,16 @@ export default function RCCertificate({
             )}
             {ipfsHash && (
               <div className="rc-blockchain-item">
-                <label>IPFS DOCUMENT HASH (RC + INVOICE)</label>
+                {/* A sha256: reference is this server's verified store, not an IPFS
+                    CID - the certificate must not claim otherwise. */}
+                <label>
+                  {ipfsHash.startsWith("sha256:")
+                    ? "DOCUMENT CONTENT HASH (SHA-256)"
+                    : "IPFS DOCUMENT HASH (RC + INVOICE)"}
+                </label>
                 <span className="rc-hash rc-hash-green">
                   <span className="rc-dot rc-dot-green"></span>
-                  {ipfsHash}
+                  {ipfsHash.replace("sha256:", "")}
                 </span>
               </div>
             )}
@@ -257,12 +292,14 @@ export default function RCCertificate({
             {!blockchainTxHash && (
               <div className="rc-blockchain-item">
                 <label>TRANSACTION HASH</label>
-                <span className="rc-hash" style={{ color: "#ff9933" }}>
+                <span className="rc-hash" style={{ color: "#b45309" }}>
                   <span
                     className="rc-dot rc-dot-cyan"
-                    style={{ background: "#ff9933" }}
+                    style={{ background: "#b45309" }}
                   ></span>
-                  PENDING - Blockchain sync in progress...
+                  Awaiting on-chain commitment - the record is hashed and
+                  stored; the transaction is broadcast when the anchoring wallet
+                  can pay the fee
                 </span>
               </div>
             )}
@@ -275,21 +312,39 @@ export default function RCCertificate({
             <div className="rc-qr-placeholder">
               <QRCodeSVG value={qrData} size={80} level="H" />
             </div>
-            <div className="rc-qr-label">Scan to verify on-chain</div>
+            <div className="rc-qr-label">
+              Record summary of this certificate
+            </div>
           </div>
           <div className="rc-footer-center">
             <div className="rc-authenticated-text">
-              Fingerprint authenticated by
+              Issued by the registered officer
             </div>
-            <div className="rc-officer-name">RTO OFFICER</div>
-            <div className="rc-officer-details">Anand Kumar · MH-12</div>
+            {issuedByOfficer ? (
+              <>
+                <div className="rc-officer-name">
+                  {issuedByOfficer.split(" (")[0]}
+                </div>
+                <div className="rc-officer-details">
+                  {rtoOffice || "Office not recorded"}
+                </div>
+              </>
+            ) : (
+              <div className="rc-officer-details">
+                Not recorded for this registration
+              </div>
+            )}
           </div>
           <div className="rc-footer-right">
             <div className="rc-seal">
               <div className="rc-seal-text">RTO</div>
-              <div className="rc-seal-subtext">DIGITALLY SEALED</div>
+              <div className="rc-seal-subtext">
+                {hasChainRecord ? "COMMITTED ON CHAIN" : "REGISTRY RECORD"}
+              </div>
             </div>
-            <div className="rc-chain">POLYGON CHAIN</div>
+            <div className="rc-chain">
+              {hasChainRecord ? "POLYGON AMOY" : "CHAIN COMMIT PENDING"}
+            </div>
           </div>
         </div>
       </div>

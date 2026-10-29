@@ -10,6 +10,13 @@ import {
     transferVehicleOnChain,
     getCurrentOwnerFromChain
 } from "../services/blockchainService.js";
+import {
+    uploadToIPFS,
+    getFromIPFS,
+    isVaultReference,
+    resolveVaultFile
+} from "../services/ipfsService.js";
+import { maskUserAadhaar } from "../utils/masking.js";
 
 const router = express.Router();
 
@@ -29,10 +36,6 @@ router.post("/request", authRequired, upload.fields([
     { name: 'relationshipProof', maxCount: 1 }
 ]), async (req, res) => {
     try {
-        console.log("Inheritance request received");
-        console.log("req.body:", req.body);
-        console.log("req.files:", req.files);
-
         const vehicleRegNumber = req.body.vehicleRegNumber || req.body.vehicleId;
         const deceasedOwnerName = req.body.deceasedOwnerId; // This is actually the name now
         const deathCertificateNumber = req.body.deathCertificateNumber;
@@ -71,9 +74,6 @@ router.post("/request", authRequired, upload.fields([
             return res.status(404).json({ message: "Vehicle owner not found in system" });
         }
 
-        console.log(`Vehicle found: ${vehicleRegNumber}, Owner: ${deceasedOwner.name}`);
-        console.log(`Submitted deceased name: ${deceasedOwnerName}`);
-
         // Note: We're not strictly validating the name match here since user might enter slightly different format
         // The RTO officer will verify during approval
 
@@ -86,29 +86,38 @@ router.post("/request", authRequired, upload.fields([
             return res.status(400).json({ message: "Inheritance transfer already in process for this vehicle" });
         }
 
-        // Handle document uploads
-        const documents = [];
-        if (req.files) {
-            const fileMapping = {
-                'deathCertificate': 'death_certificate',
-                'successionCertificate': 'succession_certificate',
-                'courtOrder': 'court_order',
-                'relationshipProof': 'identity_proof' // Using identity_proof for relationship proof
-            };
+        // Store every document the heir uploaded. Before this, the bytes were read
+        // into memory and then thrown away while the record kept a made-up path,
+        // so the RTO officer was "verifying documents" he could never open.
+        const fileMapping = {
+            deathCertificate: 'death_certificate',
+            successionCertificate: 'succession_certificate',
+            courtOrder: 'court_order',
+            relationshipProof: 'identity_proof' // Using identity_proof for relationship proof
+        };
 
-            Object.keys(fileMapping).forEach(fieldName => {
-                if (req.files[fieldName] && req.files[fieldName][0]) {
-                    documents.push({
-                        documentType: fileMapping[fieldName],
-                        fileUrl: `/uploads/inheritance-${Date.now()}-${fieldName}.pdf`,
-                        verified: false,
-                        ipfsHash: null // Will be populated after IPFS upload
-                    });
-                }
+        const documents = [];
+        for (const [fieldName, documentType] of Object.entries(fileMapping)) {
+            const uploaded = req.files?.[fieldName]?.[0];
+            if (!uploaded) continue;
+            const reference = await uploadToIPFS(uploaded.buffer, uploaded.originalname, {
+                uploadedBy: req.user.id,
+                mimeType: uploaded.mimetype,
+                documentType,
+                vehicleRegNumber,
+            });
+            documents.push({
+                documentType,
+                documentUrl: reference,
+                verified: false
             });
         }
 
-        console.log("Documents to save:", documents);
+        if (!documents.some((d) => d.documentType === "death_certificate")) {
+            return res.status(400).json({
+                message: "A death certificate must be attached - the claim cannot be verified without it."
+            });
+        }
 
         const inheritanceRequest = new InheritanceTransfer({
             vehicle: vehicle._id,
@@ -123,14 +132,19 @@ router.post("/request", authRequired, upload.fields([
 
         await inheritanceRequest.save();
 
-        console.log("Inheritance request saved successfully:", inheritanceRequest._id);
         res.status(201).json({
             message: "Inheritance transfer request submitted successfully",
-            requestId: inheritanceRequest._id
+            requestId: inheritanceRequest._id,
+            documentsStored: documents.length,
+            // The heir keeps the same receipts the officer sees.
+            documents: documents.map((d, index) => ({
+                documentType: d.documentType,
+                storedAs: d.documentUrl,
+                downloadPath: `/inheritance/requests/${inheritanceRequest._id}/documents/${index}`
+            }))
         });
     } catch (err) {
         console.error("inheritance request error:", err.message);
-        console.error("Full error:", err);
         res.status(500).json({ message: "Server error: " + err.message });
     }
 });
@@ -162,9 +176,75 @@ router.get("/requests", authRequired, async (req, res) => {
             .populate("rtoOfficer", "name")
             .sort({ createdAt: -1 });
 
+        // A deceased person's identity number is not anyone's business to read in
+        // full, and the heir's own number is only shown back to the heir.
+        requests.forEach((request) => {
+            maskUserAadhaar(request.deceasedOwner);
+            if (String(request.legalHeir?._id || request.legalHeir) !== String(req.user.id)) {
+                maskUserAadhaar(request.legalHeir);
+            }
+        });
+
         res.json(requests);
     } catch (err) {
         console.error("get inheritance requests error:", err.message);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+// Open one document attached to an inheritance claim.
+// GET /api/inheritance/requests/:id/documents/:index
+// Only the heir who filed it, an RTO officer and the police can read it. The
+// bytes come back through the same content check as every other stored
+// document, so a file edited on disk is refused instead of served.
+router.get("/requests/:id/documents/:index", authRequired, async (req, res) => {
+    try {
+        const request = await InheritanceTransfer.findById(req.params.id);
+        if (!request) {
+            return res.status(404).json({ message: "Inheritance request not found" });
+        }
+
+        const isHeir = String(request.legalHeir) === String(req.user.id);
+        const isOfficer = req.user.role === "rto" || req.user.role === "police";
+        if (!isHeir && !isOfficer) {
+            return res.status(403).json({ message: "Not authorized to view this document" });
+        }
+
+        const index = Number(req.params.index);
+        const doc = request.documents?.[index];
+        if (!doc || !doc.documentUrl) {
+            return res.status(404).json({
+                message: "No document is stored at that position in this request"
+            });
+        }
+
+        const meta = isVaultReference(doc.documentUrl)
+            ? await resolveVaultFile(doc.documentUrl)
+            : null;
+        if (isVaultReference(doc.documentUrl) && !meta) {
+            return res.status(404).json({
+                message: "The stored file is no longer present - it was uploaded elsewhere or its bytes were removed."
+            });
+        }
+
+        let buffer;
+        try {
+            buffer = await getFromIPFS(doc.documentUrl);
+        } catch (readErr) {
+            const altered = /match/i.test(readErr.message);
+            return res.status(altered ? 409 : 502).json({
+                message: altered
+                    ? "The stored bytes no longer match their recorded hash. This document has been altered - treat it as untrusted."
+                    : "The document could not be retrieved from storage."
+            });
+        }
+
+        res.setHeader("Content-Type", meta?.mimeType || "application/octet-stream");
+        res.setHeader("Content-Length", buffer.length);
+        res.setHeader("Content-Disposition", `inline; filename="${(meta?.fileName || doc.documentType).replace(/[^\w.\- ]/g, "_")}"`);
+        res.send(buffer);
+    } catch (err) {
+        console.error("inheritance document read error:", err.message);
         res.status(500).json({ message: "Server error" });
     }
 });
@@ -184,8 +264,10 @@ router.put("/requests/:id/verify-documents", authRequired, requireRole("rto"), a
             return res.status(400).json({ message: "Request is not in submitted status" });
         }
 
-        // Update document verification status
-        if (documentVerifications) {
+        // Update document verification status. When the officer attests without
+        // naming individual files, every document on the claim is marked - a
+        // half-checked list must not be recorded as a completed verification.
+        if (documentVerifications && documentVerifications.length) {
             request.documents = request.documents.map(doc => {
                 const verification = documentVerifications.find(v => v.documentType === doc.documentType);
                 if (verification) {
@@ -193,6 +275,8 @@ router.put("/requests/:id/verify-documents", authRequired, requireRole("rto"), a
                 }
                 return doc;
             });
+        } else {
+            request.documents.forEach(doc => { doc.verified = true; });
         }
 
         request.status = "documents_verified";
@@ -239,17 +323,23 @@ router.put("/requests/:id/approve", authRequired, requireRole("rto"), async (req
             // Get user's blockchain wallet addresses
             const deceasedUser = await User.findById(request.deceasedOwner._id);
             const heirUser = await User.findById(request.legalHeir._id);
-            const deceasedAddress = deceasedUser.blockchainWalletAddress || `0x${deceasedUser._id}`;
-            const heirAddress = heirUser.blockchainWalletAddress || `0x${heirUser._id}`;
+            // A wallet placeholder built from an id is not a valid address and the network
+            // rejects it, so an heir without one gets the database transfer only.
+            const deceasedAddress = deceasedUser?.blockchainWalletAddress || null;
+            const heirAddress = heirUser?.blockchainWalletAddress || null;
+
+            if (!heirAddress) {
+                console.warn(`Not anchoring the inheritance transfer of ${vehicle.regNumber}: ${heirUser?.name || "the legal heir"} has no wallet address linked to the account yet.`);
+            }
 
             try {
                 // First, try to transfer (vehicle should already be registered)
-                txHash = await transferVehicleOnChain(vehicle.regNumber, deceasedAddress, heirAddress, "inheritance", "0x0000000000000000000000000000000000000000000000000000000000000000");
+                txHash = heirAddress
+                    ? await transferVehicleOnChain(vehicle.regNumber, deceasedAddress, heirAddress, "inheritance", "0x0000000000000000000000000000000000000000000000000000000000000000")
+                    : null;
             } catch (transferError) {
                 // If transfer fails because vehicle is not registered, register it first
                 if (transferError.message.includes("Vehicle not registered")) {
-                    console.log(`Vehicle ${vehicle.regNumber} not found on blockchain, registering first...`);
-
                     // Register the vehicle directly in the legal heir's name for inheritance
                     txHash = await registerVehicleOnChain(
                         vehicle.regNumber,
@@ -258,16 +348,13 @@ router.put("/requests/:id/approve", authRequired, requireRole("rto"), async (req
                         vehicle.make || "Unknown",
                         vehicle.model || "Unknown",
                         parseInt(vehicle.year) || new Date().getFullYear(),
-                        heirAddress  // Register directly to heir for inheritance
+                        heirAddress // Register directly to heir for inheritance
                     );
-
-                    console.log(`Vehicle registered on blockchain with tx: ${txHash}`);
                 } else if (transferError.message.includes("Only owner can transfer")) {
                     // Vehicle exists on chain but is owned by deceased
                     // For inheritance, we need RTO to have special access
                     // For now, update database and log that manual blockchain transfer needed
-                    console.log(`Vehicle ${vehicle.regNumber} is owned by deceased. Inheritance transfer requires owner signature.`);
-                    console.log(`Manual process required: Deceased owner's wallet must sign transfer OR use RTO admin function`);
+                    console.warn(`Chain still lists ${vehicle.regNumber} under the deceased owner; recording the inheritance in the database and leaving the on-chain signature as a manual step`);
 
                     // Update database ownership even though blockchain failed
                     vehicle.currentOwner = request.legalHeir._id;
@@ -302,22 +389,43 @@ router.put("/requests/:id/approve", authRequired, requireRole("rto"), async (req
             }
             vehicle.regNumber = regNumber;
 
+            // Record what the printed certificate will assert about this issue.
+            const issuingOfficer = await User.findById(req.user.id).select("name employeeId rtoDetails");
+            vehicle.registrationDate = new Date();
+            vehicle.issuedByOffice = issuingOfficer?.rtoDetails?.rtoOfficeName || null;
+            vehicle.issuedByOfficer = issuingOfficer
+                ? `${issuingOfficer.name}${issuingOfficer.employeeId ? ` (${issuingOfficer.employeeId})` : ""}`
+                : null;
+
             // Get user's blockchain wallet address
             const heirUser = await User.findById(request.legalHeir._id);
-            const ownerAddress = heirUser.blockchainWalletAddress || `0x${heirUser._id}`;
+            const ownerAddress = heirUser?.blockchainWalletAddress || null;
 
-            txHash = await registerVehicleOnChain(
-                vehicle.regNumber,
-                vehicle.chassisNumber,
-                vehicle.engineNumber,
-                vehicle.make,
-                vehicle.model,
-                vehicle.year,
-                ownerAddress
-            );
+            if (!ownerAddress) {
+                console.warn(`Not anchoring the inheritance registration of ${vehicle.regNumber}: ${heirUser?.name || "the legal heir"} has no wallet address linked to the account yet.`);
+            } else {
+                txHash = await registerVehicleOnChain(
+                    vehicle.regNumber,
+                    vehicle.chassisNumber,
+                    vehicle.engineNumber,
+                    vehicle.make,
+                    vehicle.model,
+                    vehicle.year,
+                    ownerAddress
+                );
+            }
         }
 
         vehicle.currentOwner = request.legalHeir._id;
+        // Handing the certificate to the heir is an officer decision, and the RC
+        // printed afterwards should name the officer and office that took it.
+        if (!vehicle.issuedByOfficer) {
+            const heirOfficer = await User.findById(req.user.id).select("name employeeId rtoDetails");
+            vehicle.issuedByOffice = heirOfficer?.rtoDetails?.rtoOfficeName || vehicle.issuedByOffice || null;
+            vehicle.issuedByOfficer = heirOfficer
+                ? `${heirOfficer.name}${heirOfficer.employeeId ? ` (${heirOfficer.employeeId})` : ""}`
+                : null;
+        }
         await vehicle.save();
 
         // Create ownership history record

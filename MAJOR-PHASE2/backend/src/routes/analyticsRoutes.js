@@ -390,4 +390,43 @@ router.get("/overview", authRequired, requireRole("rto", "police"), async (req, 
     }
 });
 
+// Public registry pulse for the landing page.
+// Aggregate counts only - no plate, owner name, document or address is returned
+// here, which is why this is the one analytics route that needs no sign-in. The
+// landing page shows these figures instead of the illustrative numbers it used
+// to carry, so everything a visitor reads about the registry is true of it.
+router.get("/registry-pulse", async (req, res) => {
+    try {
+        const [totalVehicles, onChainVehicles, totalOwners, pendingRequests,
+            registrationsCompleted, transfersCompleted, theftCasesActive, vehiclesBlocked]
+            = await Promise.all([
+                Vehicle.countDocuments(),
+                Vehicle.countDocuments({ blockchainTxHash: { $nin: [null, ""] } }),
+                User.countDocuments({ role: "owner" }),
+                Request.countDocuments({ status: "pending" }),
+                Request.countDocuments({ type: "newRegistration", status: "approved" }),
+                Request.countDocuments({ type: "transfer", status: "approved" }),
+                TheftReport.countDocuments({ status: { $in: ["reported", "under_investigation"] } }),
+                Vehicle.countDocuments({ status: { $in: ["stolen", "blocked"] } }),
+            ]);
+
+        res.json({
+            totalVehicles,
+            onChainVehicles,
+            totalOwners,
+            pendingRequests,
+            registrationsCompleted,
+            transfersCompleted,
+            theftCasesActive,
+            vehiclesBlocked,
+            // Stated explicitly because the records are committed on a test network.
+            chainNetwork: "Polygon Amoy testnet",
+            asOf: new Date().toISOString(),
+        });
+    } catch (err) {
+        console.error("Registry pulse error:", err.message);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
 export default router;

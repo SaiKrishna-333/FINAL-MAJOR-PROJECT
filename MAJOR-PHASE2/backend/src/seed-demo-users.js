@@ -2,8 +2,10 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import { User } from './models/User.js';
+import { generateDID } from './services/didService.js';
+import { enrollFingerprint, getUserBiometricTemplate } from './services/biometricService.js';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const users = [
   {
@@ -94,16 +96,71 @@ const users = [
   },
 ];
 
+const ensureBiometricEnrolment = async (user) => {
+  // The id on the account is only a pointer; the enrolment has to exist in the
+  // durable store. Accounts seeded before it did - or whose template was dropped
+  // with the session - are re-enrolled here, so a pointer never dangles.
+  if (user.fingerprintTemplateId) {
+    const existing = await getUserBiometricTemplate(user._id.toString());
+    if (existing) return false;
+  }
+  try {
+    const templateId = await enrollFingerprint(user._id.toString(), null);
+    user.fingerprintTemplateId = templateId;
+    user.biometricData = { fingerprint: templateId, lastEnrolled: new Date() };
+    return true;
+  } catch (err) {
+    console.log(`  biometric enrollment skipped for ${user.email}: ${err.message}`);
+    return false;
+  }
+};
+
+const giveIdentity = async (user) => {
+  // Mirrors what registration does for a real account: a stored fingerprint
+  // template and a decentralized identifier. Demo accounts created before those
+  // steps existed are topped up here, so a reviewer sees the same identity
+  // features on a demo login as on a freshly registered one. Idempotent - an
+  // account that already has both is left untouched.
+  let changed = await ensureBiometricEnrolment(user);
+
+  if (!user.did?.identifier) {
+    try {
+      const didData = await generateDID(user._id.toString(), user.role);
+      user.did = {
+        identifier: didData.did,
+        biochainDid: didData.biochainDid,
+        document: didData.didDocument,
+        createdAt: new Date(),
+      };
+      if (!user.blockchainWalletAddress) user.blockchainWalletAddress = didData.address;
+      changed = true;
+    } catch (err) {
+      console.log(`  DID generation skipped for ${user.email}: ${err.message}`);
+    }
+  }
+
+  if (changed) {
+    await user.save();
+    console.log(`  identity completed for ${user.email}: DID ${user.did?.identifier || '-'}`);
+  }
+};
+
 const seedUsers = async () => {
   const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/biochain_rto';
 
   await mongoose.connect(MONGO_URI);
   console.log('Connected to MongoDB for demo seeding');
 
+  // Idempotent: skip users that already exist (never delete live demo data)
   const emails = users.map((u) => u.email);
-  await User.deleteMany({ email: { $in: emails } });
+  const existing = await User.find({ email: { $in: emails } });
+  const existingEmails = new Set(existing.map((u) => u.email));
 
   for (const userData of users) {
+    if (existingEmails.has(userData.email)) {
+      console.log(`Skipped existing demo user: ${userData.email}`);
+      continue;
+    }
     const passwordHash = await bcrypt.hash(userData.password, 10);
     const user = new User({
       ...userData,
@@ -112,13 +169,38 @@ const seedUsers = async () => {
 
     await user.save();
     console.log(`Created demo user: ${userData.email}`);
+    await giveIdentity(user);
   }
 
-  try {
-    await mongoose.connection.db.collection('users').dropIndex('rtoDetails.employeeId_1');
-    console.log('Dropped stale RTO employee index for demo compatibility');
-  } catch (err) {
-    console.log('No stale RTO employee index to drop');
+  // Backfill accounts seeded by an earlier version of this script.
+  for (const user of existing) {
+    await giveIdentity(user);
+  }
+
+  // Accounts created by another route (a test run, a live registration) are not
+  // part of the demo list, but a dangling fingerprint pointer on one of them
+  // would make biometric checks fail in silence. Heal every account, not only
+  // the seeded five.
+  for (const user of await User.find({})) {
+    if (existingEmails.has(user.email)) continue;
+    if (await ensureBiometricEnrolment(user)) {
+      await user.save();
+      console.log(`  fingerprint enrolment restored for ${user.email}`);
+    }
+  }
+
+  // Any account left by an older seed with a blank string in a unique-indexed
+  // identity field is repaired here, so the index can stay in place and still
+  // mean what it says. One field at a time: a single $unset covering all of them
+  // would wipe the real value on another field of the same account.
+  for (const field of ['rtoDetails.employeeId', 'aadhaarNumber', 'dlNumber', 'did.identifier', 'did.biochainDid']) {
+    const res = await mongoose.connection.db.collection('users').updateMany(
+      { [field]: { $in: ['', '   '] } },
+      { $unset: { [field]: '' } },
+    );
+    if (res.modifiedCount) {
+      console.log(`Cleared blank ${field} on ${res.modifiedCount} account(s) so the unique index stays meaningful`);
+    }
   }
 
   console.log('Demo users seed complete');

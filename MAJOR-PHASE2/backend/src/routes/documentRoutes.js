@@ -3,6 +3,7 @@ import { authRequired, requireRole } from "../middleware/authMiddleware.js";
 import { Vehicle } from "../models/Vehicle.js";
 import { Request } from "../models/Request.js";
 import { User } from "../models/User.js";
+import { maskAadhaar } from "../utils/masking.js";
 
 const router = express.Router();
 
@@ -17,12 +18,18 @@ router.get("/rc/:vehicleId", authRequired, async (req, res) => {
             return res.status(404).json({ message: "Vehicle not found" });
         }
 
-        // Check if user has permission to view this RC
-        if (req.user.id !== vehicle.currentOwner._id && req.user.role !== "rto" && req.user.role !== "police") {
+        // Check if user has permission to view this RC. A populated _id is an
+        // ObjectId, so it has to be compared as text or the holder themselves
+        // would be refused.
+        const holderId = String(vehicle.currentOwner?._id || vehicle.currentOwner || "");
+        const isHolder = holderId && holderId === String(req.user.id);
+        if (!isHolder && req.user.role !== "rto" && req.user.role !== "police") {
             return res.status(403).json({ message: "Unauthorized access" });
         }
 
-        // Generate RC document data
+        // The RC payload repeats only what the registry actually holds. Where the
+        // record has no value, the field comes back empty and the printed
+        // certificate says "Not recorded" rather than filling the gap.
         const rcData = {
             regNumber: vehicle.regNumber,
             chassisNumber: vehicle.chassisNumber,
@@ -30,14 +37,17 @@ router.get("/rc/:vehicleId", authRequired, async (req, res) => {
             make: vehicle.make,
             model: vehicle.model,
             year: vehicle.year,
-            ownerName: vehicle.currentOwner.name,
-            ownerEmail: vehicle.currentOwner.email,
-            ownerAadhaar: vehicle.currentOwner.aadhaarNumber,
-            ownerDL: vehicle.currentOwner.dlNumber,
-            issueDate: new Date().toISOString(),
-            validity: "Permanent",
-            issuingAuthority: "Regional Transport Office",
-            qrCode: `RC_${vehicle.regNumber}_${Date.now()}`
+            ownerName: vehicle.currentOwner?.name || null,
+            ownerEmail: vehicle.currentOwner?.email || null,
+            ownerAadhaar: maskAadhaar(vehicle.currentOwner?.aadhaarNumber),
+            ownerDL: vehicle.currentOwner?.dlNumber || null,
+            issueDate: vehicle.registrationDate || null,
+            issuedByOffice: vehicle.issuedByOffice || null,
+            issuedByOfficer: vehicle.issuedByOfficer || null,
+            status: vehicle.status,
+            blockchainTxHash: vehicle.blockchainTxHash || null,
+            // A stable reference: the same vehicle always prints the same code.
+            qrCode: `RC_${vehicle.regNumber || vehicle._id}`
         };
 
         res.json(rcData);
@@ -61,8 +71,10 @@ router.get("/transfer-certificate/:requestId", authRequired, async (req, res) =>
         }
 
         // Check if user has permission to view this certificate
-        if (req.user.id !== request.seller._id && req.user.id !== request.buyer._id &&
-            req.user.role !== "rto" && req.user.role !== "police") {
+        const sellerId = String(request.seller?._id || request.seller || "");
+        const thisBuyerId = String(request.buyer?._id || request.buyer || "");
+        const isParty = sellerId === String(req.user.id) || thisBuyerId === String(req.user.id);
+        if (!isParty && req.user.role !== "rto" && req.user.role !== "police") {
             return res.status(403).json({ message: "Unauthorized access" });
         }
 
@@ -79,19 +91,19 @@ router.get("/transfer-certificate/:requestId", authRequired, async (req, res) =>
             seller: {
                 name: request.seller.name,
                 email: request.seller.email,
-                aadhaar: request.seller.aadhaarNumber,
+                aadhaar: maskAadhaar(request.seller.aadhaarNumber),
                 dlNumber: request.seller.dlNumber
             },
             buyer: {
                 name: request.buyer.name,
                 email: request.buyer.email,
-                aadhaar: request.buyer.aadhaarNumber,
+                aadhaar: maskAadhaar(request.buyer.aadhaarNumber),
                 dlNumber: request.buyer.dlNumber
             },
             transferDate: request.updatedAt,
             status: request.status,
             issuedBy: "Regional Transport Office",
-            qrCode: `TRANSFER_${request._id}_${Date.now()}`
+            qrCode: `TRANSFER_${request._id}`
         };
 
         res.json(transferData);
@@ -115,8 +127,10 @@ router.get("/invoice/:requestId", authRequired, async (req, res) => {
         }
 
         // Check if user has permission to view this invoice
-        if (req.user.id !== request.buyer._id && req.user.id !== request.dealer._id &&
-            req.user.role !== "rto" && req.user.role !== "police") {
+        const invoiceBuyerId = String(request.buyer?._id || request.buyer || "");
+        const invoiceDealerId = String(request.dealer?._id || request.dealer || "");
+        const isInvoiceParty = invoiceBuyerId === String(req.user.id) || invoiceDealerId === String(req.user.id);
+        if (!isInvoiceParty && req.user.role !== "rto" && req.user.role !== "police") {
             return res.status(403).json({ message: "Unauthorized access" });
         }
 
@@ -132,7 +146,8 @@ router.get("/invoice/:requestId", authRequired, async (req, res) => {
         const invoiceData = {
             invoiceId: `INV_${request._id.substring(0, 8).toUpperCase()}`,
             requestId: request._id,
-            date: new Date().toISOString(),
+            // The date the invoice was raised, not the moment it was read.
+            date: request.invoice?.invoiceDate || request.createdAt,
             dealer: {
                 name: request.dealer.name,
                 email: request.dealer.email,
@@ -146,7 +161,7 @@ router.get("/invoice/:requestId", authRequired, async (req, res) => {
             buyer: {
                 name: request.buyer.name,
                 email: request.buyer.email,
-                aadhaar: request.buyer.aadhaarNumber,
+                aadhaar: maskAadhaar(request.buyer.aadhaarNumber),
                 dlNumber: request.buyer.dlNumber
             },
             vehicle: {
@@ -158,8 +173,10 @@ router.get("/invoice/:requestId", authRequired, async (req, res) => {
             },
             fees: fees,
             status: request.status,
-            issuedBy: "Regional Transport Office",
-            qrCode: `INVOICE_${request._id}_${Date.now()}`
+            // The app raises the invoice; the RTO approves the registration.
+            issuedBy: "BioChain RTO console - dealer-issued invoice",
+            // A stable reference so the same invoice always prints the same code.
+            qrCode: `INVOICE_${request._id}`
         };
 
         res.json(invoiceData);
@@ -210,9 +227,12 @@ router.get("/user-documents", authRequired, async (req, res) => {
                 .map(r => ({
                     id: r._id,
                     vehicle: r.vehicle ? `${r.vehicle.make} ${r.vehicle.model}` : "Unknown",
+                    // The number printed on the invoice, so the list never shows a
+                    // slice of an internal id in its place.
+                    invoiceNumber: r.invoice?.invoiceNumber || `INV_${String(r._id).substring(0, 8).toUpperCase()}`,
                     type: "Invoice",
                     status: r.status,
-                    date: r.createdAt
+                    date: r.invoice?.invoiceDate || r.createdAt
                 }))
         };
 

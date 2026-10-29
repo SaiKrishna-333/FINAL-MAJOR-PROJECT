@@ -1,7 +1,11 @@
 import axios from "axios";
 
+// One place decides where the API lives: .env's VITE_API_URL when set, the local
+// backend otherwise.
+const API_BASE = `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api`;
+
 const api = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: API_BASE,
   headers: {
     "Content-Type": "application/json",
   },
@@ -9,37 +13,33 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
-  console.log("API Request:", config.method?.toUpperCase(), config.url);
-  console.log("Token found:", token ? "YES" : "NO");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
-    console.log("Authorization header added:", `Bearer ${token.substring(0, 20)}...`);
-  } else {
-    console.warn("NO TOKEN FOUND for request:", config.url);
   }
   return config;
-}, (error) => {
-  console.error("Request interceptor error:", error);
-  return Promise.reject(error);
-});
+}, (error) => Promise.reject(error));
 
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error("API Error:", {
-      url: error.config?.url,
-      method: error.config?.method,
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message,
-    });
-    
-    if (error.response?.status === 401) {
-      console.error("Authentication failed - clearing token");
+    if (error.response?.status === 401 && localStorage.getItem("token")) {
+      // Session is gone: drop the stale token and land on the login page once,
+      // not on the 401 that a failing background poll may return.
       localStorage.removeItem("token");
-      window.location.href = "/login";
+      localStorage.removeItem("user");
+      if (!window.location.pathname.startsWith("/login")) {
+        window.location.href = "/login";
+      }
     }
-    
+
+    // Replace axios' generic text ("Request failed with status code 403") with the
+    // reason the API actually returned, so every alert/dialog explains what failed.
+    const serverMessage =
+      error.response?.data?.message || error.response?.data?.error;
+    if (serverMessage && error) {
+      error.message = String(serverMessage);
+    }
+
     return Promise.reject(error);
   }
 );

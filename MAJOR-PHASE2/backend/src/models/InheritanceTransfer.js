@@ -59,4 +59,8 @@ const inheritanceTransferSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
+// Succession requests are queued by status and read per vehicle by the RTO.
+inheritanceTransferSchema.index({ vehicle: 1, status: 1 });
+inheritanceTransferSchema.index({ status: 1, createdAt: -1 });
+
 export const InheritanceTransfer = mongoose.model("InheritanceTransfer", inheritanceTransferSchema);

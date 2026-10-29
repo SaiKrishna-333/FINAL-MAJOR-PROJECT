@@ -4,6 +4,7 @@ import { User } from "../models/User.js";
 import { Vehicle } from "../models/Vehicle.js";
 import { OwnershipHistory } from "../models/OwnershipHistory.js";
 import { verifyFingerprint } from "../services/biometricService.js";
+import { maskAadhaar } from "../utils/masking.js";
 
 const router = express.Router();
 
@@ -28,7 +29,8 @@ router.post("/lookup", authRequired, requireRole("police"), async (req, res) => 
         res.json({
             person: {
                 name: user.name,
-                aadhaarNumber: user.aadhaarNumber,
+                // Enough for an officer to confirm the match, not the number itself.
+                aadhaarNumber: maskAadhaar(user.aadhaarNumber),
                 dlNumber: user.dlNumber
             },
             vehicles,

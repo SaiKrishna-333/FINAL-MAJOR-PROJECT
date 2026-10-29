@@ -19,23 +19,14 @@ export const initializeSocket = (httpServer) => {
     });
 
     io.on("connection", (socket) => {
-        console.log(`Client connected: ${socket.id}`);
-
         // Join user-specific room
         socket.on("join", (userId) => {
             socket.join(`user:${userId}`);
-            console.log(`Socket ${socket.id} joined room user:${userId}`);
         });
 
         // Join role-specific room
         socket.on("join-role", (role) => {
             socket.join(`role:${role}`);
-            console.log(`Socket ${socket.id} joined room role:${role}`);
-        });
-
-        // Handle disconnection
-        socket.on("disconnect", () => {
-            console.log(`Client disconnected: ${socket.id}`);
         });
     });
 
@@ -66,7 +57,6 @@ export const emitToUser = (userId, event, data) => {
         ...data,
         timestamp: new Date().toISOString()
     });
-    console.log(`Emitted ${event} to user:${userId}`);
 };
 
 /**
@@ -82,7 +72,6 @@ export const emitToRole = (role, event, data) => {
         ...data,
         timestamp: new Date().toISOString()
     });
-    console.log(`Emitted ${event} to role:${role}`);
 };
 
 /**
@@ -141,7 +130,6 @@ export const broadcast = (event, data) => {
         ...data,
         timestamp: new Date().toISOString()
     });
-    console.log(`Broadcasted ${event} to all clients`);
 };
 
 /**

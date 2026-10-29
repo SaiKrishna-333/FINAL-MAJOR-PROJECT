@@ -1,5 +1,22 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
+import api from "../services/api";
+import { formatDateTime } from "../lib/display";
+
+// The landing page reports the registry as it stands, so the figures come from
+// the same database the dashboards read. Nothing here is a fixed marketing number.
+type RegistryPulse = {
+  totalVehicles: number;
+  onChainVehicles: number;
+  totalOwners: number;
+  pendingRequests: number;
+  registrationsCompleted: number;
+  transfersCompleted: number;
+  theftCasesActive: number;
+  vehiclesBlocked: number;
+  chainNetwork: string;
+  asOf: string;
+};
 
 // Feature icons as SVG components
 const BiometricIcon = () => (
@@ -107,14 +124,14 @@ const VerifyIcon = () => (
   </svg>
 );
 
-// Transaction data
+// Transaction data (illustrative preview - real records live behind the
+// role dashboards; fabricated tx hashes are never shown as on-chain proof)
 const recentTransactions = [
   {
     regNumber: "MH-12-AB-4892",
     owner: "Rajesh Subramaniam",
     type: "New Reg",
     status: "Verified",
-    txHash: "0x3a9f...e434",
     time: "09:14 AM",
   },
   {
@@ -122,7 +139,6 @@ const recentTransactions = [
     owner: "Arjun Venkatesh",
     type: "Transfer",
     status: "Verified",
-    txHash: "0x67c2...bc9f",
     time: "08:52 AM",
   },
   {
@@ -130,7 +146,6 @@ const recentTransactions = [
     owner: "Priya Rajan",
     type: "Inheritance",
     status: "Pending",
-    txHash: "0xe842...fe82",
     time: "08:30 AM",
   },
   {
@@ -138,7 +153,6 @@ const recentTransactions = [
     owner: "Ramesh Gupta",
     type: "Stolen",
     status: "Blocked",
-    txHash: "0x1a3...c7d0",
     time: "07:18 AM",
   },
   {
@@ -146,8 +160,33 @@ const recentTransactions = [
     owner: "Sunita Patel",
     type: "New Reg",
     status: "Verified",
-    txHash: "0x923b...54ef",
     time: "06:55 AM",
+  },
+];
+
+// The three certificate layouts the landing page can switch between. Same
+// vehicle, three moments in its life - the plate never changes, the story does.
+const RC_TABS = [
+  {
+    tabLabel: "NEW PURCHASE",
+    badgeClass: "rc-badge-new",
+    badgeText: "New Registration",
+    ownerName: "Rajesh Subramaniam",
+    scene: "First ownership • booked through a dealer • invoice attached",
+  },
+  {
+    tabLabel: "SECOND-HAND",
+    badgeClass: "rc-badge-resale",
+    badgeText: "Second-Hand Sale",
+    ownerName: "Arjun Venkatesh",
+    scene: "Ownership transferred • consent captured from seller and buyer",
+  },
+  {
+    tabLabel: "INHERITANCE",
+    badgeClass: "rc-badge-inheritance",
+    badgeText: "Inheritance",
+    ownerName: "Priya Rajan",
+    scene: "Transferred to the registered legal heir after document review",
   },
 ];
 
@@ -191,23 +230,45 @@ const TypeBadge = ({ type }: { type: string }) => {
 };
 
 export default function Home() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [rcTab, setRcTab] = useState(0);
+  const rcSample = RC_TABS[rcTab];
+  const [pulse, setPulse] = useState<RegistryPulse | null>(null);
+  const [pulseError, setPulseError] = useState(false);
   const [animatedStats, setAnimatedStats] = useState({
     vehicles: 0,
-    accuracy: 0,
-    forgeries: 0,
+    onChain: 0,
+    owners: 0,
     transfers: 0,
   });
 
+  // Aggregate counts only, from an endpoint that needs no sign-in.
   useEffect(() => {
+    let cancelled = false;
+    api
+      .get("/analytics/registry-pulse")
+      .then((res) => {
+        if (!cancelled) setPulse(res.data as RegistryPulse);
+      })
+      .catch(() => {
+        if (!cancelled) setPulseError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Count up to the live figures once they arrive.
+  useEffect(() => {
+    if (!pulse) return;
     const duration = 2000;
     const steps = 60;
     const interval = duration / steps;
-
     const targets = {
-      vehicles: 1400000,
-      accuracy: 98,
-      forgeries: 0,
-      transfers: 312000,
+      vehicles: pulse.totalVehicles,
+      onChain: pulse.onChainVehicles,
+      owners: pulse.totalOwners,
+      transfers: pulse.transfersCompleted,
     };
 
     let step = 0;
@@ -218,8 +279,8 @@ export default function Home() {
 
       setAnimatedStats({
         vehicles: Math.floor(targets.vehicles * easeOut),
-        accuracy: Math.floor(targets.accuracy * easeOut),
-        forgeries: 0,
+        onChain: Math.floor(targets.onChain * easeOut),
+        owners: Math.floor(targets.owners * easeOut),
         transfers: Math.floor(targets.transfers * easeOut),
       });
 
@@ -227,13 +288,9 @@ export default function Home() {
     }, interval);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [pulse]);
 
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + "M+";
-    if (num >= 1000) return (num / 1000).toFixed(0) + "K";
-    return num.toString();
-  };
+  const formatNumber = (num: number) => num.toLocaleString("en-IN");
 
   return (
     <div className="home-page">
@@ -243,26 +300,37 @@ export default function Home() {
           <span className="nav-logo">BIOCHAIN</span>
           <span className="nav-subtitle">RTO</span>
         </div>
-        <div className="nav-links">
+        <div className={`nav-links${menuOpen ? " open" : ""}`}>
           <Link to="/" className="nav-link active">
-            Dashboard
+            Home
           </Link>
           <Link to="/register" className="nav-link">
             Registration
           </Link>
-          <Link to="/transfer" className="nav-link">
+          <Link to="/owner" className="nav-link">
             Transfer
           </Link>
-          <Link to="/verify" className="nav-link">
+          <Link to="/search" className="nav-link">
             Verify
           </Link>
-          <Link to="/admin" className="nav-link">
-            Admin Tools
+          <Link to="/rto" className="nav-link">
+            RTO Tools
           </Link>
           <Link to="/police" className="nav-link">
             Law Enforcement
           </Link>
         </div>
+        <button
+          type="button"
+          className="nav-toggle"
+          aria-label="Toggle navigation menu"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((v) => !v)}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
         <Link to="/login" className="nav-login-btn">
           <svg
             width="16"
@@ -284,7 +352,7 @@ export default function Home() {
       <section className="hero-section">
         <div className="hero-badge">
           <span className="badge-dot"></span>
-          BLOCKCHAIN • BIOMETRIC • IPFS • SMART CONTRACTS
+          BIOMETRIC CONSENT • SHA-256 RECORDS • POLYGON AMOY
         </div>
         <h1 className="hero-title">
           Secure Vehicle Lifecycle
@@ -292,83 +360,120 @@ export default function Home() {
           on the <span className="highlight">Blockchain</span>
         </h1>
         <p className="hero-subtitle">
-          India's first biometric-authenticated vehicle registration authority.
-          Every ownership record is immutably stored on the Polygon network —
-          transparent, tamper-resistant, and instantly verifiable.
+          A biometric-authenticated vehicle registration authority. Every
+          registration, transfer and status change is hashed and stored in the
+          registry, then committed to the Polygon Amoy test network as a public
+          transaction — so each record can be re-checked independently.
         </p>
         <div className="hero-actions">
           <Link to="/register" className="btn btn-primary btn-large">
             Register a Vehicle
           </Link>
-          <Link to="/verify" className="btn btn-outline btn-large">
+          <Link to="/search" className="btn btn-outline btn-large">
             Verify on Chain
           </Link>
         </div>
 
-        {/* Stats Row */}
+        {/* Stats Row - live counts from this registry */}
         <div className="stats-row">
           <div className="stat-item">
             <div className="stat-value">
-              {formatNumber(animatedStats.vehicles)}
+              {pulse ? formatNumber(animatedStats.vehicles) : "—"}
             </div>
-            <div className="stat-label">VEHICLES REGISTERED</div>
-          </div>
-          <div className="stat-item">
-            <div className="stat-value">{animatedStats.accuracy}%</div>
-            <div className="stat-label">BIOMETRIC ACCURACY</div>
-          </div>
-          <div className="stat-item">
-            <div className="stat-value">{animatedStats.forgeries}</div>
-            <div className="stat-label">FORGERIES</div>
-            <div className="stat-sublabel">SINCE LAUNCH</div>
+            <div className="stat-label">VEHICLES IN THE REGISTRY</div>
           </div>
           <div className="stat-item">
             <div className="stat-value">
-              {formatNumber(animatedStats.transfers)}
+              {pulse ? formatNumber(animatedStats.onChain) : "—"}
             </div>
-            <div className="stat-label">TRANSFERS EXECUTED</div>
+            <div className="stat-label">RECORDS COMMITTED ON-CHAIN</div>
+            <div className="stat-sublabel">
+              {pulse?.chainNetwork || "Polygon"}
+            </div>
+          </div>
+          <div className="stat-item">
+            <div className="stat-value">
+              {pulse ? formatNumber(animatedStats.owners) : "—"}
+            </div>
+            <div className="stat-label">REGISTERED OWNERS</div>
+          </div>
+          <div className="stat-item">
+            <div className="stat-value">
+              {pulse ? formatNumber(animatedStats.transfers) : "—"}
+            </div>
+            <div className="stat-label">TRANSFERS COMPLETED</div>
           </div>
         </div>
+        {pulseError && (
+          <p className="stats-note">
+            Live registry figures are unavailable right now - the backend is not
+            responding. No numbers are shown rather than placeholder ones.
+          </p>
+        )}
       </section>
 
       {/* RTO Operations Section */}
       <section className="operations-section">
         <div className="section-header">
           <h3 className="section-title">RTO OPERATIONS</h3>
-          <Link to="/dashboard" className="view-all-link">
-            View Dashboard →
+          <Link to="/login" className="view-all-link">
+            Sign in to Dashboard
           </Link>
         </div>
         <div className="stats-cards">
           <div className="stat-card">
-            <div className="stat-card-value">284</div>
-            <div className="stat-card-label">New Registrations</div>
-            <div className="stat-card-trend up">↑ 12% from yesterday</div>
+            <div className="stat-card-value">
+              {pulse ? formatNumber(pulse.registrationsCompleted) : "—"}
+            </div>
+            <div className="stat-card-label">New Registrations Approved</div>
+            <div className="stat-card-trend">
+              Issued with a registration number
+            </div>
           </div>
           <div className="stat-card">
-            <div className="stat-card-value">91</div>
+            <div className="stat-card-value">
+              {pulse ? formatNumber(pulse.transfersCompleted) : "—"}
+            </div>
             <div className="stat-card-label">Ownership Transfers</div>
-            <div className="stat-card-trend up">↑ 7% from yesterday</div>
+            <div className="stat-card-trend">Finalised by an RTO officer</div>
           </div>
           <div className="stat-card warning">
-            <div className="stat-card-value">18</div>
+            <div className="stat-card-value">
+              {pulse ? formatNumber(pulse.pendingRequests) : "—"}
+            </div>
             <div className="stat-card-label">Pending Approvals</div>
             <div className="stat-card-trend">Requires RTO action</div>
           </div>
           <div className="stat-card danger">
-            <div className="stat-card-value">3</div>
-            <div className="stat-card-label">Stolen Reports</div>
-            <div className="stat-card-trend">Blocked on-chain</div>
+            <div className="stat-card-value">
+              {pulse ? formatNumber(pulse.vehiclesBlocked) : "—"}
+            </div>
+            <div className="stat-card-label">
+              Vehicles Blocked or Reported Stolen
+            </div>
+            <div className="stat-card-trend">
+              {pulse
+                ? `${pulse.theftCasesActive} theft report(s) under investigation`
+                : "Theft reports under investigation"}
+            </div>
           </div>
         </div>
+        {pulse && (
+          <p className="stats-note">
+            Counts read live from the registry, as of{" "}
+            {formatDateTime(pulse.asOf)}.
+          </p>
+        )}
       </section>
 
       {/* Recent Transactions */}
       <section className="transactions-section">
         <div className="section-header">
-          <h3 className="section-title">RECENT TRANSACTIONS</h3>
-          <Link to="/transactions" className="view-all-link">
-            View All →
+          <h3 className="section-title">
+            RECENT TRANSACTIONS (SAMPLE PREVIEW)
+          </h3>
+          <Link to="/login" className="view-all-link">
+            Sign in to see live records
           </Link>
         </div>
         <div className="transactions-table-wrapper">
@@ -379,7 +484,6 @@ export default function Home() {
                 <th>OWNER</th>
                 <th>TYPE</th>
                 <th>STATUS</th>
-                <th>TX HASH</th>
                 <th>TIME</th>
               </tr>
             </thead>
@@ -394,7 +498,6 @@ export default function Home() {
                   <td>
                     <StatusBadge status={tx.status} />
                   </td>
-                  <td className="mono tx-hash">{tx.txHash}</td>
                   <td className="time">{tx.time}</td>
                 </tr>
               ))}
@@ -407,11 +510,23 @@ export default function Home() {
       <section className="certificate-section">
         <div className="section-header centered">
           <div className="section-tabs">
-            <button className="tab-btn active">NEW PURCHASE</button>
-            <button className="tab-btn">SECOND-HAND</button>
-            <button className="tab-btn">INHERITANCE</button>
+            {RC_TABS.map((tab, index) => (
+              <button
+                key={tab.tabLabel}
+                type="button"
+                className={`tab-btn${index === rcTab ? " active" : ""}`}
+                onClick={() => setRcTab(index)}
+              >
+                {tab.tabLabel}
+              </button>
+            ))}
           </div>
         </div>
+        <p className="rc-sample-note">
+          Illustrative certificate layout. The plate, owner and dates below are
+          a design sample - an issued certificate prints only what this registry
+          actually holds for the vehicle.
+        </p>
         <div className="certificate-preview">
           <div className="rc-certificate">
             {/* Certificate Header */}
@@ -426,25 +541,26 @@ export default function Home() {
                 </div>
               </div>
               <div className="rc-header-right">
-                <span className="rc-badge-new">New Registration</span>
+                <span className={rcSample.badgeClass}>
+                  {rcSample.badgeText}
+                </span>
               </div>
             </div>
 
             {/* Certificate Title */}
             <div className="rc-title-section">
               <div className="rc-title-left">
-                <div className="rc-lock-icon">🔒</div>
                 <div className="rc-title-text">
                   <span className="rc-authority">Blockchain RTO Authority</span>
                   <h2 className="rc-title">Registration Certificate</h2>
-                  <span className="rc-subtitle">
-                    First Ownership • Vehicle Purchase • Blockchain Issued
-                  </span>
+                  <span className="rc-subtitle">{rcSample.scene}</span>
                 </div>
               </div>
               <div className="rc-title-right">
                 <span className="rc-status-active">Active</span>
-                <span className="rc-validity">Valid till 14 Mar 2035</span>
+                <span className="rc-validity">
+                  Validity read from the record
+                </span>
               </div>
             </div>
 
@@ -458,11 +574,11 @@ export default function Home() {
             <div className="rc-details-grid">
               <div className="rc-detail-item">
                 <label>Owner Name</label>
-                <span className="rc-detail-value">Rajesh Subramaniam</span>
+                <span className="rc-detail-value">{rcSample.ownerName}</span>
               </div>
               <div className="rc-detail-item">
                 <label>Aadhaar Number</label>
-                <span className="rc-detail-value rc-mono">XXXX-XXXX-7821</span>
+                <span className="rc-detail-value rc-mono">XXXX-XXXX-####</span>
               </div>
               <div className="rc-detail-item">
                 <label>Registration Date</label>
@@ -496,32 +612,30 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Blockchain Section */}
+            {/* Blockchain Section - an issued certificate prints the real
+                hashes here; this layout shows where each one appears */}
             <div className="rc-blockchain-section">
-              <h4 className="rc-blockchain-title">
-                <span className="rc-blockchain-icon">🔗</span>
-                BLOCKCHAIN RECORD
-              </h4>
+              <h4 className="rc-blockchain-title">BLOCKCHAIN RECORD</h4>
               <div className="rc-blockchain-grid">
                 <div className="rc-blockchain-item">
                   <label>Transaction Hash</label>
                   <div className="rc-hash">
                     <span className="rc-dot rc-dot-cyan"></span>
-                    0x7a8ff3e19b8d7a8f5cb19d8a7f5cb19d8a7f5cb19d8a7f5cb19d8a7f5cb19d8a
+                    Printed once the record is committed on Polygon Amoy
                   </div>
                 </div>
                 <div className="rc-blockchain-item">
-                  <label>IPFS Document Hash</label>
+                  <label>Document Hash (SHA-256)</label>
                   <div className="rc-hash rc-hash-green">
                     <span className="rc-dot rc-dot-green"></span>
-                    QmX5b7f3a9c8d2e1b4f6a7c9d8e2f1a3b5c7d9e1f2a4b6c8d0e2f4a6b8c0d2e4f6
+                    Computed when the RC or invoice is uploaded
                   </div>
                 </div>
                 <div className="rc-blockchain-item">
                   <label>Biometric Credential</label>
                   <div className="rc-hash rc-hash-purple">
                     <span className="rc-dot rc-dot-purple"></span>
-                    0x9f3a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a
+                    Recorded at the owner's consent step
                   </div>
                 </div>
               </div>
@@ -538,37 +652,39 @@ export default function Home() {
                       width="20"
                       height="20"
                       fill="none"
-                      stroke="#00D4FF"
+                      stroke="#1e5aa8"
                       strokeWidth="2"
                     />
-                    <rect x="10" y="10" width="10" height="10" fill="#00D4FF" />
+                    <rect x="10" y="10" width="10" height="10" fill="#1e5aa8" />
                     <rect
                       x="35"
                       y="5"
                       width="20"
                       height="20"
                       fill="none"
-                      stroke="#00D4FF"
+                      stroke="#1e5aa8"
                       strokeWidth="2"
                     />
-                    <rect x="40" y="10" width="10" height="10" fill="#00D4FF" />
+                    <rect x="40" y="10" width="10" height="10" fill="#1e5aa8" />
                     <rect
                       x="5"
                       y="35"
                       width="20"
                       height="20"
                       fill="none"
-                      stroke="#00D4FF"
+                      stroke="#1e5aa8"
                       strokeWidth="2"
                     />
-                    <rect x="10" y="40" width="10" height="10" fill="#00D4FF" />
-                    <rect x="35" y="35" width="5" height="5" fill="#00D4FF" />
-                    <rect x="45" y="35" width="5" height="5" fill="#00D4FF" />
-                    <rect x="35" y="45" width="5" height="5" fill="#00D4FF" />
-                    <rect x="50" y="40" width="5" height="10" fill="#00D4FF" />
+                    <rect x="10" y="40" width="10" height="10" fill="#1e5aa8" />
+                    <rect x="35" y="35" width="5" height="5" fill="#1e5aa8" />
+                    <rect x="45" y="35" width="5" height="5" fill="#1e5aa8" />
+                    <rect x="35" y="45" width="5" height="5" fill="#1e5aa8" />
+                    <rect x="50" y="40" width="5" height="10" fill="#1e5aa8" />
                   </svg>
                 </div>
-                <span className="rc-qr-label">Scan to Verify on Polygon</span>
+                <span className="rc-qr-label">
+                  Issued certificates carry a scannable record summary
+                </span>
               </div>
               <div className="rc-footer-center">
                 <span className="rc-authenticated-text">
@@ -579,15 +695,15 @@ export default function Home() {
                   RTO Officer • MH-12 Pune West
                 </span>
                 <span className="rc-officer-details">
-                  Digital Signature: 0x7a8f...e434
+                  Signing officer and employee ID are recorded on issue
                 </span>
               </div>
               <div className="rc-footer-right">
                 <div className="rc-seal">
-                  <span className="rc-seal-text">✓</span>
-                  <span className="rc-seal-subtext">VERIFIED</span>
+                  <span className="rc-seal-text">RC</span>
+                  <span className="rc-seal-subtext">SAMPLE</span>
                 </div>
-                <span className="rc-chain">POLYGON MAINNET</span>
+                <span className="rc-chain">POLYGON AMOY</span>
               </div>
             </div>
           </div>
@@ -602,66 +718,78 @@ export default function Home() {
             <div className="feature-icon">
               <BiometricIcon />
             </div>
-            <h4>Biometric Authentication</h4>
+            <h4>Biometric Consent at Every Step</h4>
             <p>
-              Fingerprint-based identity verification before every transaction.
-              Minutiae extraction with 1:N matching ensures no impersonation is
-              possible.
+              Fingerprint templates are captured in the browser, reduced to a
+              minutiae hash and compared against the enrolled template before a
+              registration, transfer or theft report is accepted. The stored
+              evidence is the hash and the match score, never the scan itself.
+              Matching runs on a software harness in this build — no physical
+              reader is attached.
             </p>
           </div>
           <div className="feature-card">
             <div className="feature-icon">
               <BlockchainIcon />
             </div>
-            <h4>Blockchain Ownership Records</h4>
+            <h4>Ownership Records With a Public Hash</h4>
             <p>
-              All vehicle ownership data is written to Solidity smart contracts
-              on Polygon. Immutable, transparent, and instantly auditable by
-              authorized parties.
+              Each record is hashed with SHA-256 and saved in MongoDB, then
+              committed to the Polygon Amoy test network as a transaction that
+              carries that hash, so a public explorer shows exactly which
+              promise the record makes. A commitment costs gas, so records whose
+              fee cannot yet be paid stay marked pending instead of claiming a
+              confirmation they do not have.
             </p>
           </div>
           <div className="feature-card">
             <div className="feature-icon">
               <StorageIcon />
             </div>
-            <h4>Decentralized Document Storage</h4>
+            <h4>Verified Document Store</h4>
             <p>
-              Vehicle RCs, insurance, PUC, and transfer forms are stored on IPFS
-              via Pinata. Document hashes are linked to both MongoDB and
-              blockchain.
+              Vehicle RCs, insurance, PUC and transfer forms are uploaded to
+              this server's verified store, hashed with SHA-256, and the hash is
+              what links the document to the registry record and the chain
+              commitment. Pointing the same flow at an IPFS pinning service is a
+              configuration change, not a code change.
             </p>
           </div>
           <div className="feature-card">
             <div className="feature-icon">
               <ContractIcon />
             </div>
-            <h4>Smart Contract Transfers</h4>
+            <h4>Transfers That Need Both Parties</h4>
             <p>
-              Ownership hand sale and inheritance transfers are executed via
-              smart contracts after dual biometric verification of both parties
-              and RTO approval.
+              Sale and inheritance transfers need the consent of both parties at
+              the biometric step and an RTO officer's approval before the
+              database ownership record changes. Unpaid challans and incomplete
+              approval checklists block the finalisation.
             </p>
           </div>
           <div className="feature-card">
             <div className="feature-icon">
               <ShieldIcon />
             </div>
-            <h4>Stolen Vehicle Blocking</h4>
+            <h4>Stolen Vehicle Reporting</h4>
             <p>
-              Theft reports instantly trigger on-chain blocking of the vehicle.
-              Law enforcement can verify blacklisted status in real-time from
-              any location.
+              A theft report moves the vehicle to a blocked lifecycle status in
+              the registry at once, and verification lookups return that status
+              to any officer or police user. The matching status-change
+              commitment is attempted on the test network and stays pending
+              until its fee is paid.
             </p>
           </div>
           <div className="feature-card">
             <div className="feature-icon">
               <VerifyIcon />
             </div>
-            <h4>Universal Verification</h4>
+            <h4>Independent Verification</h4>
             <p>
-              Any RTO officer or law enforcement agency can scan the RC's QR
-              code to instantly verify ownership history, document authenticity,
-              and chain of custody.
+              Signed-in RTO and police users can open any vehicle and see its
+              lifecycle status, ownership history, document hashes and the
+              transaction hash of its chain commitment, with a link straight to
+              the public explorer entry.
             </p>
           </div>
         </div>
@@ -672,27 +800,28 @@ export default function Home() {
         <div className="footer-content">
           <div className="footer-brand">
             <div className="footer-logo">
-              <span className="logo-icon">⛓️</span>
+              <span className="rc-emblem">IN</span>
               <div>
                 <span className="logo-text">BioChain RTO</span>
                 <p className="logo-tagline">
-                  India's blockchain-powered vehicle registration authority.
-                  Secure, transparent, tamper-resistant. Built on Polygon.
+                  A blockchain-backed vehicle registration authority. Hashed
+                  records, biometric consent, commitments on the Polygon Amoy
+                  test network.
                 </p>
               </div>
             </div>
             <div className="footer-tech">
               <span className="tech-badge">
                 <span className="tech-dot polygon"></span>
-                Polygon Mainnet
+                Polygon Amoy Testnet
               </span>
               <span className="tech-badge">
                 <span className="tech-dot ipfs"></span>
-                IPFS + Pinata
+                SHA-256 Verified Store
               </span>
               <span className="tech-badge">
                 <span className="tech-dot mongo"></span>
-                MongoDB Atlas
+                MongoDB
               </span>
             </div>
           </div>
@@ -705,22 +834,24 @@ export default function Home() {
                   <Link to="/register">New Vehicle Registration</Link>
                 </li>
                 <li>
-                  <Link to="/transfer">Ownership Transfer</Link>
+                  <Link to="/owner">Ownership Transfer</Link>
                 </li>
                 <li>
-                  <Link to="/inheritance">Inheritance Processing</Link>
+                  <Link to="/owner?tab=inheritance">
+                    Inheritance Processing
+                  </Link>
                 </li>
                 <li>
-                  <Link to="/report">Report Vehicle Theft</Link>
+                  <Link to="/owner?tab=theft">Report Vehicle Theft</Link>
                 </li>
                 <li>
-                  <Link to="/verify">Verify Vehicle</Link>
+                  <Link to="/search">Verify Vehicle</Link>
                 </li>
                 <li>
-                  <Link to="/documents">Document Upload (IPFS)</Link>
+                  <Link to="/documents">Document Records</Link>
                 </li>
                 <li>
-                  <Link to="/audit">Audit Trail</Link>
+                  <Link to="/analytics">Audit Trail</Link>
                 </li>
               </ul>
             </div>
@@ -740,13 +871,10 @@ export default function Home() {
                   <Link to="/police">Law Enforcement Access</Link>
                 </li>
                 <li>
-                  <Link to="/admin">Admin Panel</Link>
+                  <Link to="/workshop">Authorized Workshop Portal</Link>
                 </li>
                 <li>
-                  <Link to="/api">API Documentation</Link>
-                </li>
-                <li>
-                  <Link to="/sdk">Developer SDK</Link>
+                  <Link to="/investigations">Fraud Investigation Desk</Link>
                 </li>
               </ul>
             </div>
@@ -774,7 +902,15 @@ export default function Home() {
               </div>
               <div className="contact-item">
                 <strong>BLOCKCHAIN EXPLORER</strong>
-                <p>polygonscan.com/address/0x7f3c...</p>
+                <p>
+                  <a
+                    href="https://amoy.polygonscan.com/address/0x21F940c10FE9AbEA9eD67CE5689FBCa447701966"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    VehicleRegistry contract on Polygon Amoy
+                  </a>
+                </p>
               </div>
             </div>
           </div>
@@ -783,7 +919,7 @@ export default function Home() {
         <div className="footer-bottom">
           <div className="footer-legal">
             <p>
-              © 2025 BioChain RTO Authority • Ministry of Road Transport &
+              © 2026 BioChain RTO Authority • Ministry of Road Transport &
               Highways, Government of India
             </p>
             <p>
@@ -792,11 +928,11 @@ export default function Home() {
             </p>
           </div>
           <div className="footer-legal-links">
-            <Link to="/privacy">Privacy Policy</Link>
-            <Link to="/terms">Terms of Use</Link>
-            <Link to="/blockchain">Blockchain Notice</Link>
-            <Link to="/rti">RTI</Link>
-            <Link to="/sitemap">Sitemap</Link>
+            <span>Privacy Policy</span>
+            <span>Terms of Use</span>
+            <span>Blockchain Notice</span>
+            <span>RTI</span>
+            <span>Sitemap</span>
           </div>
         </div>
       </footer>

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/useAuth";
 import { useNavigate } from "react-router-dom";
+import DashboardLayout from "../components/DashboardLayout";
+import { formatDate } from "../lib/display";
 
 interface Vehicle {
   _id: string;
@@ -29,7 +31,7 @@ interface Pagination {
 }
 
 export default function VehicleSearch() {
-  const { user, logout, api } = useAuth();
+  const { user, api } = useAuth();
   const navigate = useNavigate();
 
   // Search state
@@ -58,8 +60,8 @@ export default function VehicleSearch() {
     try {
       const res = await api.get("/vehicles/makes");
       setMakes(res.data);
-    } catch (err) {
-      console.error("Failed to fetch makes:", err);
+    } catch {
+      // The make filter simply offers no extra choices if this list is unavailable.
     }
   }, [api]);
 
@@ -83,13 +85,17 @@ export default function VehicleSearch() {
         setPagination(res.data.pagination);
         setHasSearched(true);
       } catch (err) {
-        console.error("Search error:", err);
-        alert("Failed to perform search. Please try again.");
+        // Say what went wrong instead of a generic retry plea.
+        alert(
+          err instanceof Error
+            ? err.message
+            : "Search failed. Please try again.",
+        );
       } finally {
         setLoading(false);
       }
     },
-    [api, query, status, dateFrom, dateTo, make, year, ownerName]
+    [api, query, status, dateFrom, dateTo, make, year, ownerName],
   );
 
   // Initial load
@@ -133,9 +139,9 @@ export default function VehicleSearch() {
       case "active":
         return "role-owner";
       case "stolen":
-        return "role-police";
+        return "role-reject";
       case "blocked":
-        return "role-police";
+        return "role-reject";
       case "scrapped":
         return "role-dealer";
       default:
@@ -144,289 +150,274 @@ export default function VehicleSearch() {
   };
 
   return (
-    <div className="container">
-      <div className="navbar">
-        <div className="container">
-          <h2>BioChain RTO - Vehicle Search</h2>
-          <div className="nav-links">
-            <span className={`role-badge role-${user?.role}`}>
-              {user?.role?.toUpperCase()}
-            </span>
-            <button
-              className="btn btn-primary"
-              onClick={() => navigate(`/${user?.role}`)}
-            >
-              Dashboard
-            </button>
-            <button
-              className="btn btn-danger"
-              onClick={() => {
-                logout();
-                navigate("/");
-              }}
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
+    <DashboardLayout
+      title="Advanced Vehicle Search"
+      subtitle="Look up any vehicle by registration, chassis or owner"
+    >
+      <div className="container">
+        <div className="card">
+          <h3>Advanced Vehicle Search</h3>
+          <p
+            style={{
+              color: "var(--color-text-secondary)",
+              marginBottom: "20px",
+            }}
+          >
+            Search vehicles by registration number, chassis number, owner name,
+            or apply filters.
+          </p>
 
-      <div className="card">
-        <h3>Advanced Vehicle Search</h3>
-        <p
-          style={{ color: "var(--color-text-secondary)", marginBottom: "20px" }}
-        >
-          Search vehicles by registration number, chassis number, owner name, or
-          apply filters.
-        </p>
-
-        {/* Search Form */}
-        <form onSubmit={handleSearch} className="search-form">
-          <div className="search-grid">
-            {/* Global Search */}
-            <div className="form-group search-global">
-              <label>Search Query</label>
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Reg No, Chassis, Engine, Make, Model..."
-                className="search-input"
-              />
-            </div>
-
-            {/* Status Filter */}
-            <div className="form-group">
-              <label>Status</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="stolen">Stolen</option>
-                <option value="blocked">Blocked</option>
-                <option value="scrapped">Scrapped</option>
-              </select>
-            </div>
-
-            {/* Make Filter */}
-            <div className="form-group">
-              <label>Make</label>
-              <select value={make} onChange={(e) => setMake(e.target.value)}>
-                <option value="">All Makes</option>
-                {makes.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Year Filter */}
-            <div className="form-group">
-              <label>Year</label>
-              <input
-                type="number"
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-                placeholder="e.g., 2024"
-                min="1900"
-                max={new Date().getFullYear() + 1}
-              />
-            </div>
-
-            {/* Owner Name */}
-            <div className="form-group">
-              <label>Owner Name</label>
-              <input
-                type="text"
-                value={ownerName}
-                onChange={(e) => setOwnerName(e.target.value)}
-                placeholder="Search by owner name..."
-              />
-            </div>
-
-            {/* Date From */}
-            <div className="form-group">
-              <label>Date From</label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-              />
-            </div>
-
-            {/* Date To */}
-            <div className="form-group">
-              <label>Date To</label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="search-actions">
-            <button
-              type="submit"
-              className="btn btn-success"
-              disabled={loading}
-            >
-              {loading ? "Searching..." : "🔍 Search"}
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={handleClearFilters}
-              disabled={loading}
-            >
-              Clear Filters
-            </button>
-          </div>
-        </form>
-
-        {/* Results Summary */}
-        {hasSearched && (
-          <div className="search-results-summary">
-            <p>
-              Found <strong>{pagination.totalCount}</strong> vehicles
-              {pagination.totalPages > 1 && (
-                <span>
-                  {" "}
-                  (Page {pagination.currentPage} of {pagination.totalPages})
-                </span>
-              )}
-            </p>
-          </div>
-        )}
-
-        {/* Results Table */}
-        {vehicles.length > 0 ? (
-          <div className="search-results">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Reg No</th>
-                  <th>Vehicle</th>
-                  <th>Year</th>
-                  <th>Owner</th>
-                  <th>Status</th>
-                  <th>Registered</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vehicles.map((vehicle) => (
-                  <tr key={vehicle._id}>
-                    <td>
-                      <strong>{vehicle.regNumber || "Not Assigned"}</strong>
-                      <br />
-                      <small style={{ color: "var(--color-text-muted)" }}>
-                        {vehicle.chassisNumber}
-                      </small>
-                    </td>
-                    <td>
-                      {vehicle.make} {vehicle.model}
-                      <br />
-                      <small style={{ color: "var(--color-text-muted)" }}>
-                        Engine: {vehicle.engineNumber.substring(0, 15)}...
-                      </small>
-                    </td>
-                    <td>{vehicle.year}</td>
-                    <td>
-                      {vehicle.currentOwner ? (
-                        <>
-                          {vehicle.currentOwner.name}
-                          <br />
-                          <small style={{ color: "var(--color-text-muted)" }}>
-                            {vehicle.currentOwner.phone ||
-                              vehicle.currentOwner.email}
-                          </small>
-                        </>
-                      ) : (
-                        <span style={{ color: "var(--color-text-muted)" }}>
-                          No Owner
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <span
-                        className={`role-badge ${getStatusBadgeClass(
-                          vehicle.status
-                        )}`}
-                      >
-                        {vehicle.status.toUpperCase()}
-                      </span>
-                    </td>
-                    <td>{new Date(vehicle.createdAt).toLocaleDateString()}</td>
-                    <td>
-                      <div className="action-buttons">
-                        <button
-                          className="btn btn-info"
-                          onClick={() => navigate(`/rc-card/${vehicle._id}`)}
-                          title="View RC Card"
-                        >
-                          📄 RC
-                        </button>
-                        {vehicle.blockchainTxHash && (
-                          <a
-                            href={`https://amoy.polygonscan.com/tx/${vehicle.blockchainTxHash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-success"
-                            title="View on Blockchain"
-                          >
-                            🔗
-                          </a>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* Pagination */}
-            {pagination.totalPages > 1 && (
-              <div className="pagination">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => handlePageChange(pagination.currentPage - 1)}
-                  disabled={pagination.currentPage === 1 || loading}
-                >
-                  Previous
-                </button>
-                <span className="pagination-info">
-                  Page {pagination.currentPage} of {pagination.totalPages}
-                </span>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => handlePageChange(pagination.currentPage + 1)}
-                  disabled={
-                    pagination.currentPage === pagination.totalPages || loading
-                  }
-                >
-                  Next
-                </button>
+          {/* Search Form */}
+          <form onSubmit={handleSearch} className="search-form">
+            <div className="search-grid">
+              {/* Global Search */}
+              <div className="form-group search-global">
+                <label>Search Query</label>
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Reg No, Chassis, Engine, Make, Model..."
+                  className="search-input"
+                />
               </div>
-            )}
-          </div>
-        ) : hasSearched && !loading ? (
-          <div className="no-results">
-            <p>No vehicles found matching your criteria.</p>
-            <p style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}>
-              Try adjusting your filters or search query.
-            </p>
-          </div>
-        ) : null}
-      </div>
 
-      <footer className="dashboard-footer">
-        <p>© 2026 BioChain RTO System • Digital India Initiative</p>
-      </footer>
-    </div>
+              {/* Status Filter */}
+              <div className="form-group">
+                <label>Status</label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="stolen">Stolen</option>
+                  <option value="blocked">Blocked</option>
+                  <option value="scrapped">Scrapped</option>
+                </select>
+              </div>
+
+              {/* Make Filter */}
+              <div className="form-group">
+                <label>Make</label>
+                <select value={make} onChange={(e) => setMake(e.target.value)}>
+                  <option value="">All Makes</option>
+                  {makes.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Year Filter */}
+              <div className="form-group">
+                <label>Year</label>
+                <input
+                  type="number"
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                  placeholder="e.g., 2024"
+                  min="1900"
+                  max={new Date().getFullYear() + 1}
+                />
+              </div>
+
+              {/* Owner Name */}
+              <div className="form-group">
+                <label>Owner Name</label>
+                <input
+                  type="text"
+                  value={ownerName}
+                  onChange={(e) => setOwnerName(e.target.value)}
+                  placeholder="Search by owner name..."
+                />
+              </div>
+
+              {/* Date From */}
+              <div className="form-group">
+                <label>Date From</label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                />
+              </div>
+
+              {/* Date To */}
+              <div className="form-group">
+                <label>Date To</label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="search-actions">
+              <button
+                type="submit"
+                className="btn btn-success"
+                disabled={loading}
+              >
+                {loading ? "Searching..." : "Search"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleClearFilters}
+                disabled={loading}
+              >
+                Clear Filters
+              </button>
+            </div>
+          </form>
+
+          {/* Results Summary */}
+          {hasSearched && (
+            <div className="search-results-summary">
+              <p>
+                Found <strong>{pagination.totalCount}</strong> vehicles
+                {pagination.totalPages > 1 && (
+                  <span>
+                    {" "}
+                    (Page {pagination.currentPage} of {pagination.totalPages})
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
+
+          {/* Results Table */}
+          {vehicles.length > 0 ? (
+            <div className="search-results">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Reg No</th>
+                    <th>Vehicle</th>
+                    <th>Year</th>
+                    <th>Owner</th>
+                    <th>Status</th>
+                    <th>Registered</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vehicles.map((vehicle) => (
+                    <tr key={vehicle._id}>
+                      <td>
+                        <strong>{vehicle.regNumber || "Not Assigned"}</strong>
+                        <br />
+                        <small style={{ color: "var(--color-text-muted)" }}>
+                          {vehicle.chassisNumber}
+                        </small>
+                      </td>
+                      <td>
+                        {vehicle.make} {vehicle.model}
+                        <br />
+                        <small style={{ color: "var(--color-text-muted)" }}>
+                          Engine: {vehicle.engineNumber.substring(0, 15)}...
+                        </small>
+                      </td>
+                      <td>{vehicle.year}</td>
+                      <td>
+                        {vehicle.currentOwner ? (
+                          <>
+                            {vehicle.currentOwner.name}
+                            <br />
+                            <small style={{ color: "var(--color-text-muted)" }}>
+                              {vehicle.currentOwner.phone ||
+                                vehicle.currentOwner.email}
+                            </small>
+                          </>
+                        ) : (
+                          <span style={{ color: "var(--color-text-muted)" }}>
+                            No Owner
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <span
+                          className={`role-badge ${getStatusBadgeClass(
+                            vehicle.status,
+                          )}`}
+                        >
+                          {vehicle.status.toUpperCase()}
+                        </span>
+                      </td>
+                      <td>
+                        {formatDate(vehicle.createdAt)}
+                      </td>
+                      <td>
+                        <div className="action-buttons">
+                          <button
+                            className="btn btn-info"
+                            onClick={() => navigate(`/rc-card/${vehicle._id}`)}
+                            title="View RC Card"
+                          >
+                            RC
+                          </button>
+                          {vehicle.blockchainTxHash && (
+                            <a
+                              href={`https://amoy.polygonscan.com/tx/${vehicle.blockchainTxHash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn btn-success"
+                              title="View on Blockchain"
+                            ></a>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Pagination */}
+              {pagination.totalPages > 1 && (
+                <div className="pagination">
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => handlePageChange(pagination.currentPage - 1)}
+                    disabled={pagination.currentPage === 1 || loading}
+                  >
+                    Previous
+                  </button>
+                  <span className="pagination-info">
+                    Page {pagination.currentPage} of {pagination.totalPages}
+                  </span>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => handlePageChange(pagination.currentPage + 1)}
+                    disabled={
+                      pagination.currentPage === pagination.totalPages ||
+                      loading
+                    }
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : hasSearched && !loading ? (
+            <div className="no-results">
+              <p>No vehicles found matching your criteria.</p>
+              <p
+                style={{ color: "var(--color-text-muted)", fontSize: "0.9rem" }}
+              >
+                Try adjusting your filters or search query.
+              </p>
+            </div>
+          ) : null}
+        </div>
+
+        <footer className="dashboard-footer">
+          <p>© 2026 BioChain RTO System • Digital India Initiative</p>
+        </footer>
+      </div>
+    </DashboardLayout>
   );
 }

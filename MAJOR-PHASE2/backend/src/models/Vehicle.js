@@ -32,6 +32,14 @@ const vehicleSchema = new mongoose.Schema(
             timestamp: { type: Date, default: Date.now }
         }],
         lastVerified: { type: Date },
+        // What the printed registration certificate is allowed to assert. Each value
+        // is captured when an officer actually issues the number, so the RC never has
+        // to invent an issue date, an office or a signing officer.
+        registrationDate: { type: Date },
+        issuedByOffice: { type: String },
+        issuedByOfficer: { type: String },
+        // The account that put this vehicle into the registry (dealer or owner).
+        registeredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
         // IPFS document hashes for vehicle documents
         ipfsDocuments: {
             rcCertificate: { type: String }, // Registration Certificate
@@ -81,5 +89,10 @@ const vehicleSchema = new mongoose.Schema(
     },
     { timestamps: true }
 );
+
+// The owner dashboard reads by holder, and every search/filter screen reads by
+// lifecycle status, so both need an index once the table grows past a demo size.
+vehicleSchema.index({ currentOwner: 1 });
+vehicleSchema.index({ status: 1 });
 
 export const Vehicle = mongoose.model("Vehicle", vehicleSchema);

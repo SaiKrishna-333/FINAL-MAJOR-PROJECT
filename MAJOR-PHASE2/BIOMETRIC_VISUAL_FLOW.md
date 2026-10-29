@@ -1,6 +1,6 @@
 # Biometric Simulation - Visual Flow Guide
 
-## 🎯 Quick Start Testing
+## Quick Start Testing
 
 ### Test 1: User Registration with Biometric Enrollment
 
@@ -18,14 +18,14 @@
    - Upload any profile photo
 
 3. Click "Create Secure Identity"
-   ✅ Form submits
-   ✅ Biometric modal appears with blurred background
+  Form submits
+  Biometric modal appears with blurred background
 
 4. Watch the animation:
-   ⏱️ 0-2s:   "Place your index finger on the scanner" (pulsing fingerprint)
-   ⏱️ 2-7s:   Scanning animation with progress bar (0% → 100%)
-   ⏱️ 7-9s:   Processing with spinner
-   ⏱️ 9-11s:  Success ✓ with quality score (~92%)
+   0-2s:   "Place your index finger on the scanner" (pulsing fingerprint)
+   2-7s:   Scanning animation with progress bar (0% → 100%)
+   7-9s:   Processing with spinner
+   9-11s:  Success  with quality score (~92%)
 
 5. Auto-redirects to login page
 ```
@@ -49,34 +49,34 @@
    - Insurance: 30000
 
 4. Click "Submit Registration"
-   ✅ Dual Biometric Verification modal opens
+  Dual Biometric Verification modal opens
 
 5. STEP 1 - Dealer Biometric (You):
-   ⏱️ See your name and "DEALER" role
-   ⏱️ Positioning → Scanning → Processing → Success ✓
-   ⏱️ Progress indicator: ① ✓  ②  ③
+   See your name and "DEALER" role
+   Positioning → Scanning → Processing → Success
+   Progress indicator:
 
 6. STEP 2 - Buyer Biometric:
-   ⏱️ Screen transitions to show "Buyer" and "OWNER"
-   ⏱️ Positioning → Scanning → Processing → Success ✓
-   ⏱️ Progress indicator: ① ✓  ② ✓  ③
+   Screen transitions to show "Buyer" and "OWNER"
+   Positioning → Scanning → Processing → Success
+   Progress indicator:
 
 7. STEP 3 - Verification:
-   ⏱️ Shows both parties side by side:
+   Shows both parties side by side:
        ┌─────────────┐         ┌─────────────┐
-       │  🏪 DEALER  │  ⟷   │  👤 OWNER   │
+       │    DEALER  │  ⟷   │    OWNER   │
        │ Your Name   │         │   Buyer     │
        │  Quality: 94%│         │  Quality: 91%│
        └─────────────┘         └─────────────┘
 
-   ⏱️ "Verifying Biometric Match..." with spinner
-   ⏱️ After 3 seconds:
-       ✅ "Biometric Match Confirmed!"
-       ✅ Green checkmark animation
-       ✅ Lists:
-          ✅ [Your Name] (dealer) verified
-          ✅ Buyer (owner) verified
-          ✅ Transaction authorized on blockchain
+   "Verifying Biometric Match..." with spinner
+   After 3 seconds:
+  "Biometric Match Confirmed!"
+  Green checkmark animation
+  Lists:
+  [Your Name] (dealer) verified
+  Buyer (owner) verified
+  Transaction authorized on blockchain
 
 8. Modal closes → Invoice generated → Success!
 ```
@@ -91,30 +91,30 @@
 3. Click "Sell" on any vehicle
 4. Enter buyer email: "newbuyer@test.com"
 5. Click "Submit Transfer Request"
-   ✅ Dual Biometric Verification modal opens
+  Dual Biometric Verification modal opens
 
 6. STEP 1 - Seller Biometric:
-   ⏱️ Shows your name and "OWNER" role
-   ⏱️ Full capture animation
-   ⏱️ Progress: ① ✓  ②  ③
+   Shows your name and "OWNER" role
+   Full capture animation
+   Progress:
 
 7. STEP 2 - Buyer Biometric:
-   ⏱️ Shows "Buyer" and "OWNER"
-   ⏱️ Full capture animation
-   ⏱️ Progress: ① ✓  ② ✓  ③
+   Shows "Buyer" and "OWNER"
+   Full capture animation
+   Progress:
 
 8. STEP 3 - Verification:
-   ⏱️ Side-by-side comparison
-   ⏱️ Matching animation
-   ⏱️ Success message
-   ⏱️ Transfer request sent to RTO
+   Side-by-side comparison
+   Matching animation
+   Success message
+   Transfer request sent to RTO
 
 9. RTO receives notification with both biometric records
 ```
 
 ---
 
-## 🎨 Visual Elements
+## Visual Elements
 
 ### Modal Appearance
 
@@ -129,13 +129,13 @@
 │         │   Step 1 of 3              │          │
 │         │                            │          │
 │         │   ┌──────────────────┐    │          │
-│         │   │   👤 John Doe    │    │          │
+│         │   │     John Doe    │    │          │
 │         │   │     OWNER        │    │          │
 │         │   └──────────────────┘    │          │
 │         │                            │          │
 │         │   ┌──────────────────┐    │          │
 │         │   │                  │    │          │
-│         │   │  👆 (pulsing)    │    │          │
+│         │   │    (pulsing)    │    │          │
 │         │   │                  │    │          │
 │         │   │  [Scan Line]     │    │          │
 │         │   │                  │    │          │
@@ -143,7 +143,7 @@
 │         │                            │          │
 │         │  Place your finger...      │          │
 │         │                            │          │
-│         │  🟡 Capturing biometric    │          │
+│         │    Capturing biometric    │          │
 │         └────────────────────────────┘          │
 │                                                  │
 └──────────────────────────────────────────────────┘
@@ -152,24 +152,24 @@
 ### Progress Indicator
 
 ```
-Before:  ①  ───  ②  ───  ③
+Before:   ───   ───
 
-Step 1:  ①🔵  ───  ②  ───  ③
+Step 1:    ───   ───
          (Active - capturing dealer)
 
-Step 2:  ①✓  ───  ②🔵  ───  ③
+Step 2:    ───    ───
          (Active - capturing buyer)
 
-Step 3:  ①✓  ───  ②✓  ───  ③🔵
+Step 3:    ───    ───
          (Active - verifying match)
 
-Success: ①✓  ───  ②✓  ───  ③✓
+Success:    ───    ───
          (All complete - green)
 ```
 
 ---
 
-## 📊 What Gets Stored
+## What Gets Stored
 
 ### After Registration
 
@@ -213,7 +213,7 @@ Request Document:
 
 ---
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Modal Doesn't Appear
 
@@ -241,7 +241,7 @@ Request Document:
 
 ---
 
-## 🎬 Demo Script for Presentation
+## Demo Script for Presentation
 
 ### Introduction (30 seconds)
 
@@ -293,7 +293,7 @@ a realistic fingerprint capture experience for all user roles."
 
 ---
 
-## 📝 Notes for Examiners/Guides
+## Notes for Examiners/Guides
 
 ### Why Simulation Mode?
 
@@ -319,7 +319,7 @@ a realistic fingerprint capture experience for all user roles."
 
 ---
 
-## ✅ Checklist Before Demo
+## Checklist Before Demo
 
 - [ ] Backend server running (`npm start` in backend/)
 - [ ] Frontend server running (`npm run dev` in frontend/)

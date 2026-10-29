@@ -3,7 +3,7 @@
 
 import { Notification } from "../models/Notification.js";
 import { User } from "../models/User.js";
-import { emitToUser, emitToRole, emitTheftAlert } from "./socketService.js";
+import { emitToUser, emitToRole, emitTheftAlert, emitNotification } from "./socketService.js";
 import { sendTheftAlertEmail, sendApprovalEmail, sendRejectionEmail } from "./emailService.js";
 import { sendTheftAlertSMS, sendApprovalSMS, sendRejectionSMS, sendRecoverySMS } from "./smsService.js";
 
@@ -41,7 +41,20 @@ export const createNotification = async ({
         });
 
         await notification.save();
-        console.log(`Notification created: ${title} for user ${recipient}`);
+
+        // Live push so the recipient's bell updates instantly (socket optional)
+        try {
+            emitNotification(String(recipient), {
+                notificationId: String(notification._id),
+                type,
+                title,
+                message,
+                actionUrl: actionUrl || null
+            });
+        } catch (_) {
+            /* sockets not initialized - REST list still shows it */
+        }
+
         return notification;
     } catch (error) {
         console.error("Error creating notification:", error.message);
@@ -88,7 +101,7 @@ export const createRoleNotification = async ({
             )
         );
 
-        console.log(`Created ${notifications.length} notifications for role: ${role}`);
+        console.log(`Created ${notifications.length} notification(s) for role ${role}`);
         return notifications;
     } catch (error) {
         console.error("Error creating role notifications:", error.message);
@@ -195,15 +208,19 @@ IMMEDIATE ACTION REQUIRED: Do not process any transfers for this vehicle.
             const policeUsers = await User.find({ role: "police" });
 
             for (const user of [...rtoUsers, ...policeUsers]) {
-                if (user.dealerDetails?.phone) {
-                    await sendTheftAlertSMS(user.dealerDetails.phone, vehicle, theftReport);
+                // Officers carry a plain phone; only dealers have dealerDetails.
+                // Reading just the dealer field meant an officer's SMS was never
+                // attempted, however badly the vehicle was needed.
+                const phone = user.phone || user.dealerDetails?.phone;
+                if (phone) {
+                    await sendTheftAlertSMS(phone, vehicle, theftReport);
                 }
             }
         } catch (smsErr) {
             console.error("Failed to send theft alert SMS:", smsErr.message);
         }
 
-        console.log(`Theft alert sent for vehicle ${vehicle.regNumber}`);
+        console.log(`Theft alert dispatched for ${vehicle.regNumber}`);
     } catch (error) {
         console.error("Error sending theft alert:", error.message);
         throw error;
@@ -253,7 +270,7 @@ The vehicle status has been updated to ACTIVE. Transfers can now be processed.
             }
         });
 
-        console.log(`Recovery alert sent for vehicle ${vehicle.regNumber}`);
+        console.log(`Recovery alert dispatched for ${vehicle.regNumber}`);
     } catch (error) {
         console.error("Error sending recovery alert:", error.message);
         throw error;
@@ -292,7 +309,7 @@ export const notifyRTOOfTransferRequest = async (request, vehicle, requester) =>
             }
         });
 
-        console.log(`RTO notified of ${request.type} request`);
+        console.log(`RTO notified of a ${request.type} request`);
     } catch (error) {
         console.error("Error notifying RTO:", error.message);
         throw error;
@@ -330,7 +347,7 @@ export const notifyApproval = async (request, vehicle, recipient) => {
             }
         });
 
-        console.log(`Approval notification sent to ${recipient.name}`);
+        console.log(`Approval notification recorded for a ${recipient.role}`);
     } catch (error) {
         console.error("Error sending approval notification:", error.message);
         throw error;
@@ -361,7 +378,7 @@ export const notifyRejection = async (request, recipient, remarks = "") => {
             }
         });
 
-        console.log(`Rejection notification sent to ${recipient.name}`);
+        console.log(`Rejection notification recorded for a ${recipient.role}`);
     } catch (error) {
         console.error("Error sending rejection notification:", error.message);
         throw error;

@@ -4,7 +4,7 @@
 
 ---
 
-## 🎯 OVERVIEW
+## OVERVIEW
 
 This document provides complete step-by-step flows for all user scenarios in BioChain RTO, designed for industrial demonstration with simulated components clearly marked.
 
@@ -12,15 +12,15 @@ This document provides complete step-by-step flows for all user scenarios in Bio
 
 ---
 
-## 👤 USER ROLES & ACCESS
+## USER ROLES & ACCESS
 
-| Role              | Login Credentials               | Dashboard Access |
-| ----------------- | ------------------------------- | ---------------- |
-| **Dealer**          | dealer@biochain.com / dealer123   | Dealer Dashboard |
-| **Owner (Buyer)**   | owner@biochain.com / owner123     | Owner Dashboard  |
-| **Karnataka RTO**   | ka.rto@biochain.com / ka123      | RTO Dashboard    |
-| **Tamil Nadu RTO**  | tn.rto@biochain.com / tn123      | RTO Dashboard    |
-| **Police**          | police@biochain.com / police123   | Police Dashboard |
+| Role               | Login Credentials               | Dashboard Access |
+| ------------------ | ------------------------------- | ---------------- |
+| **Dealer**         | dealer@biochain.com / dealer123 | Dealer Dashboard |
+| **Owner (Buyer)**  | owner@biochain.com / owner123   | Owner Dashboard  |
+| **Karnataka RTO**  | ka.rto@biochain.com / ka123     | RTO Dashboard    |
+| **Tamil Nadu RTO** | tn.rto@biochain.com / tn123     | RTO Dashboard    |
+| **Police**         | police@biochain.com / police123 | Police Dashboard |
 
 ---
 
@@ -115,9 +115,9 @@ Step 4.1: Notification Triggered
 ────────────────────────────────
 Action: Automatic via notificationService
 Channels:
-  ✓ WebSocket: Real-time alert to all RTO officers
-  ✓ Email: Sent to rto@biochain.com
-  ✓ In-app: Appears in RTO dashboard
+  WebSocket: Real-time alert to all RTO officers
+  Email: Sent to rto@biochain.com
+  In-app: Appears in RTO dashboard
 
 Notification Content:
 {
@@ -166,10 +166,10 @@ PHASE 6: NOTIFICATION TO OWNER
 Step 6.1: Owner Receives Approval Notification
 ──────────────────────────────────────────────
 Channels:
-  ✓ WebSocket: Real-time notification
-  ✓ Email: "Registration Approved: KA01AB1234"
-  ✓ SMS: "Your vehicle registration has been APPROVED"
-  ✓ In-app: Notification in Owner dashboard
+  WebSocket: Real-time notification
+  Email: "Registration Approved: KA01AB1234"
+  SMS: "Your vehicle registration has been APPROVED"
+  In-app: Notification in Owner dashboard
 
 Step 6.2: Owner Views Digital RC
 ────────────────────────────────
@@ -199,7 +199,7 @@ IPFS Record Hash: QmXyz... (immutable document storage)
 
 
 ═══════════════════════════════════════════════════════════════════════════════
-✅ FLOW 1 COMPLETE: Owner now has registered vehicle with Digital RC
+  FLOW 1 COMPLETE: Owner now has registered vehicle with Digital RC
 ═══════════════════════════════════════════════════════════════════════════════
 ```
 
@@ -252,7 +252,7 @@ Middleware: biometricRequired verifies seller identity
 Step 2.2: System Validates Ownership
 ────────────────────────────────────
 Check: vehicle.currentOwner == req.user.id (Owner A)
-Result: ✓ Valid, proceed with transfer request
+Result:  Valid, proceed with transfer request
 
 
 PHASE 3: NOTIFICATION TO RTO
@@ -261,9 +261,9 @@ PHASE 3: NOTIFICATION TO RTO
 Step 3.1: Real-time Alert to RTO
 ────────────────────────────────
 Channels:
-  ✓ WebSocket: "New Transfer Request: KA01AB1234"
-  ✓ Email: RTO officers notified
-  ✓ In-app: Dashboard notification
+  WebSocket: "New Transfer Request: KA01AB1234"
+  Email: RTO officers notified
+  In-app: Dashboard notification
 
 Notification:
 {
@@ -330,7 +330,7 @@ Updated Blockchain Record:
 
 
 ═══════════════════════════════════════════════════════════════════════════════
-✅ FLOW 2 COMPLETE: Vehicle transferred from Owner A to Owner B
+  FLOW 2 COMPLETE: Vehicle transferred from Owner A to Owner B
 ═══════════════════════════════════════════════════════════════════════════════
 ```
 
@@ -402,10 +402,10 @@ Priority: HIGH (sensitive case)
 Step 3.2: RTO Verifies Documents
 ────────────────────────────────
 RTO checks:
-  ✓ Death certificate authenticity
-  ✓ Legal heir certificate validity
-  ✓ Family relationship proof
-  ✓ Court succession order
+  Death certificate authenticity
+  Legal heir certificate validity
+  Family relationship proof
+  Court succession order
 
 [DEMO] Document verification simulated
 
@@ -469,7 +469,7 @@ All legal documents attached as IPFS hashes
 
 
 ═══════════════════════════════════════════════════════════════════════════════
-✅ FLOW 3 COMPLETE: Vehicle transferred to legal heir after owner's death
+  FLOW 3 COMPLETE: Vehicle transferred to legal heir after owner's death
 ═══════════════════════════════════════════════════════════════════════════════
 ```
 
@@ -541,7 +541,7 @@ To Owner: Confirmation email
 
 Step 3.3: SMS Notifications
 ───────────────────────────
-To RTO/Police: "🚨 BIOCHAIN RTO ALERT: Vehicle KA01AB1234 reported STOLEN"
+To RTO/Police: "  BIOCHAIN RTO ALERT: Vehicle KA01AB1234 reported STOLEN"
 
 Step 3.4: In-app Notifications
 ──────────────────────────────
@@ -551,7 +551,7 @@ Alert Message:
 "Vehicle KA01AB1234 (Maruti Suzuki Swift) reported stolen.
 FIR: FIR-2024-987654
 Location: MG Road, Bangalore
-⚠️ DO NOT PROCESS ANY TRANSFERS"
+   DO NOT PROCESS ANY TRANSFERS"
 
 
 PHASE 4: POLICE VERIFICATION
@@ -587,11 +587,11 @@ Result: Vehicle unblocked, transfers allowed
 
 Step 5.3: Recovery Notifications Sent
 ─────────────────────────────────────
-Owner receives: "✅ Your vehicle KA01AB1234 has been RECOVERED"
+Owner receives: "  Your vehicle KA01AB1234 has been RECOVERED"
 
 
 ═══════════════════════════════════════════════════════════════════════════════
-✅ FLOW 4 COMPLETE: Theft reported, vehicle blocked, alerts sent nationwide
+  FLOW 4 COMPLETE: Theft reported, vehicle blocked, alerts sent nationwide
 ═══════════════════════════════════════════════════════════════════════════════
 ```
 
@@ -679,13 +679,13 @@ Result: Person identified as Rahul Sharma
 
 
 ═══════════════════════════════════════════════════════════════════════════════
-✅ FLOW 5 COMPLETE: Police verified vehicle and owner in real-time
+  FLOW 5 COMPLETE: Police verified vehicle and owner in real-time
 ═══════════════════════════════════════════════════════════════════════════════
 ```
 
 ---
 
-## 🎬 DEMONSTRATION SCRIPT FOR INDUSTRIALISTS
+## DEMONSTRATION SCRIPT FOR INDUSTRIALISTS
 
 ### Pre-Demo Setup (5 minutes before)
 
@@ -693,23 +693,25 @@ Result: Person identified as Rahul Sharma
 # Terminal 1: Start MongoDB
 mongod
 
-# Terminal 2: Start Ganache (Blockchain)
-ganache-cli --deterministic
-
-# Terminal 3: Deploy Smart Contract
+# Terminal 2: (one-time) deploy the registry contract to Polygon Amoy
 cd blockchain
-npx hardhat run scripts/deploy.js --network localhost
+npm install
+npm run deploy        # prints the contract address; put it in backend/.env
 
-# Terminal 4: Start Backend
+# Terminal 3: Start Backend
 cd backend
-npm install  # If not done
+npm install           # If not done
 npm run dev
 
-# Terminal 5: Start Frontend
+# Terminal 4: Start Frontend
 cd frontend
-npm install  # If not done
+npm install           # If not done
 npm run dev
 ```
+
+The chain is the public Polygon Amoy testnet, so nothing has to be started locally
+for it: the API talks to a public RPC node and every transaction link opens
+amoy.polygonscan.com.
 
 ### Demo Flow (20 minutes total)
 
@@ -747,18 +749,18 @@ npm run dev
 
 ---
 
-## 🔧 SIMULATION CONFIGURATION
+## SIMULATION CONFIGURATION
 
 ### Current Simulation Mode (For Demo)
 
-| Component           | Status     | Configuration                       |
-| ------------------- | ---------- | ----------------------------------- |
-| **Biometric**       | SIMULATION | `BIOMETRIC_SDK_PROVIDER=mock`       |
-| **Document Upload** | SIMULATION | Any file accepted, stored in memory |
-| **Email**           | SIMULATION | Logged to console, not sent         |
-| **SMS**             | SIMULATION | Logged to console, not sent         |
-| **Blockchain**      | REAL       | Ganache local network               |
-| **IPFS**            | REAL       | Pinata or local node                |
+| Component           | Status     | Configuration                                                                              |
+| ------------------- | ---------- | ------------------------------------------------------------------------------------------ |
+| **Biometric**       | SIMULATION | No SDK path set; enrolment storage and consent gates are real                              |
+| **Document Upload** | REAL       | Pinata, local IPFS daemon or the local content-addressed vault, SHA-256 re-checked on read |
+| **Email**           | SIMULATION | Recorded in the server log, not sent, until SMTP credentials exist                         |
+| **SMS**             | SIMULATION | Recorded in the server log, not sent, until Twilio credentials exist                       |
+| **Blockchain**      | REAL       | Polygon Amoy testnet, contract 0x21F940c10FE9AbEA9eD67CE5689FBCa447701966                  |
+| **Challan payment** | SIMULATION | Demo payment modal; no gateway is contacted                                                |
 
 ### Switch to Production (When Ready)
 
@@ -783,7 +785,7 @@ PINATA_SECRET_KEY=your-pinata-secret
 
 ---
 
-## 📊 API ENDPOINTS SUMMARY
+## API ENDPOINTS SUMMARY
 
 ### Authentication
 
@@ -838,14 +840,15 @@ PINATA_SECRET_KEY=your-pinata-secret
 
 ---
 
-## ✅ CHECKLIST FOR DEMO DAY
+## CHECKLIST FOR DEMO DAY
 
 - [ ] MongoDB running
-- [ ] Ganache blockchain running
-- [ ] Smart contract deployed
-- [ ] Backend server running (port 5000)
+- [ ] Polygon Amoy RPC reachable (the API logs the connection at startup)
+- [ ] Smart contract deployed and its address in `backend/.env`
+- [ ] Backend server running (port 5000) and `/api/health` answering
 - [ ] Frontend running (port 5173)
-- [ ] Test accounts created (Dealer, Owner A, Owner B, RTO, Police)
+- [ ] Demo accounts seeded (`npm run seed:users` in backend)
+- [ ] Demo intelligence data seeded (`npm run seed:intelligence`)
 - [ ] Sample vehicle data ready
 - [ ] Presentation slides prepared
 - [ ] Backup plan (screenshots if live fails)

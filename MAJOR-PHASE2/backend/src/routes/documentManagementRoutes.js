@@ -1,9 +1,24 @@
 import express from "express";
+import crypto from "crypto";
+import fs from "fs";
 import { authRequired, requireRole } from "../middleware/authMiddleware.js";
 import { Vehicle } from "../models/Vehicle.js";
-import crypto from "crypto";
+import {
+    resolveVaultFile,
+    getFromIPFS,
+    isVaultReference,
+    VAULT_PREFIX,
+} from "../services/ipfsService.js";
 
 const router = express.Router();
+
+// The same people may see a document's metadata and its bytes: the vehicle's
+// owner, RTO/police, and whoever uploaded that particular document.
+const mayViewVehicleDocuments = (vehicle, user, document) =>
+    String(vehicle.currentOwner) === String(user.id) ||
+    (document ? String(document.uploadedBy) === String(user.id) : false) ||
+    user.role === "rto" ||
+    user.role === "police";
 
 // Get all documents for a vehicle with full metadata
 router.get("/vehicle/:vehicleId", authRequired, async (req, res) => {
@@ -97,7 +112,9 @@ router.post("/upload/:vehicleId", authRequired, async (req, res) => {
 
         res.json({
             message: "Document uploaded successfully",
-            document: newDocument
+            // Return the stored subdocument: it carries the id Mongoose generated,
+            // which the caller needs to verify, sign or preview this exact record.
+            document: vehicle.documents[vehicle.documents.length - 1],
         });
     } catch (err) {
         console.error("Upload document error:", err.message);
@@ -154,15 +171,23 @@ router.post("/sign/:vehicleId/:documentId", authRequired, requireRole("rto"), as
             return res.status(404).json({ message: "Document not found" });
         }
 
-        // Create digital signature hash
-        const signatureData = `${vehicleId}:${documentId}:${req.user.id}:${Date.now()}`;
+        // Verification seal: a SHA-256 over the officer, the vehicle and the
+        // document's own content reference. It is deterministic, so the same seal
+        // can be recomputed and a changed document produces a different value. It
+        // is not an asymmetric signature - the app holds no signing key.
+        const signatureData = [
+            vehicleId,
+            documentId,
+            req.user.id,
+            document.ipfsHash || document.fileUrl || ""
+        ].join(":");
         const signature = crypto.createHash("sha256").update(signatureData).digest("hex");
 
         document.digitalSignature = {
             signature,
             signedBy: req.user.id,
             signedAt: new Date(),
-            certificateId: certificateId || `CERT-${Date.now()}`
+            certificateId: certificateId || `SEAL-${documentId}`
         };
 
         // Auto-verify when signed
@@ -316,6 +341,10 @@ router.get("/preview/:vehicleId/:documentId", authRequired, async (req, res) => 
             mimeType: document.mimeType,
             fileUrl: document.fileUrl,
             ipfsHash: document.ipfsHash,
+            // Which medium holds the bytes: a sha256: reference is this server's
+            // verified store, anything else is a real IPFS CID.
+            storage: isVaultReference(document.ipfsHash) ? "local-verified-store" : (document.ipfsHash ? "ipfs" : null),
+            contentAvailable: !!document.ipfsHash || !!document.fileUrl,
             verificationStatus: document.verificationStatus,
             hasSignature: !!document.digitalSignature?.signature,
             uploadedAt: document.uploadedAt
@@ -323,6 +352,57 @@ router.get("/preview/:vehicleId/:documentId", authRequired, async (req, res) => 
     } catch (err) {
         console.error("Get document preview error:", err.message);
         res.status(500).json({ message: "Server error" });
+    }
+});
+
+// Serve the document's own bytes, so the preview never depends on a public
+// gateway that cannot know this server's access rules.
+// GET /api/documents-mgmt/content/:vehicleId/:documentId
+router.get("/content/:vehicleId/:documentId", authRequired, async (req, res) => {
+    try {
+        const { vehicleId, documentId } = req.params;
+
+        const vehicle = await Vehicle.findById(vehicleId).select("currentOwner documents");
+        if (!vehicle) {
+            return res.status(404).json({ message: "Vehicle not found" });
+        }
+        const document = vehicle.documents.id(documentId);
+        if (!document) {
+            return res.status(404).json({ message: "Document not found" });
+        }
+        if (!mayViewVehicleDocuments(vehicle, req.user, document)) {
+            return res.status(403).json({ message: "Not authorized to view this document" });
+        }
+        if (!document.ipfsHash) {
+            return res.status(404).json({ message: "No stored content for this document - only its metadata was recorded." });
+        }
+
+        let buffer;
+        if (isVaultReference(document.ipfsHash)) {
+            const entry = await resolveVaultFile(document.ipfsHash);
+            if (!entry) {
+                return res.status(410).json({ message: "The stored bytes are no longer on this server." });
+            }
+            buffer = await fs.promises.readFile(entry.filePath);
+            const digest = document.ipfsHash.slice(VAULT_PREFIX.length);
+            if (crypto.createHash("sha256").update(buffer).digest("hex") !== digest) {
+                return res.status(409).json({
+                    message: "The stored bytes no longer match their recorded hash. This document has been altered - treat it as untrusted.",
+                });
+            }
+            res.setHeader("X-Content-Sha256", digest);
+        } else {
+            // A genuine CID: fetch it through the service, which knows the gateway.
+            buffer = await getFromIPFS(document.ipfsHash);
+        }
+
+        res.setHeader("Content-Type", document.mimeType || "application/octet-stream");
+        res.setHeader("Content-Length", buffer.length);
+        res.setHeader("Content-Disposition", `inline; filename="${String(document.name || documentId).replace(/[^\w.\- ]/g, "_")}"`);
+        res.send(buffer);
+    } catch (err) {
+        console.error("Get document content error:", err.message);
+        res.status(502).json({ message: `The stored content could not be retrieved: ${err.message}` });
     }
 });
 

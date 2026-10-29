@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/useAuth";
+import { formatDate, formatMoney } from "../lib/display";
 
 interface Challan {
   _id: string;
@@ -47,8 +48,8 @@ export default function ChallanManagement() {
       const res = await api.get("/challans/my-challans");
       setChallans(res.data);
     } catch (err: unknown) {
-      console.error("Error fetching challans:", err);
-      alert("Failed to load challans");
+      // The API's own reason is already in err.message (see the axios layer).
+      alert(err instanceof Error ? err.message : "Failed to load challans");
     } finally {
       setLoading(false);
     }
@@ -60,13 +61,10 @@ export default function ChallanManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("=== SUBMITTING CHALLAN ===");
-    console.log("Form data:", formData);
 
     try {
-      const response = await api.post("/challans/create", formData);
-      console.log("Response:", response);
-      alert("Challan created successfully!");
+      await api.post("/challans/create", formData);
+      alert("Challan created successfully.");
       setShowForm(false);
       setFormData({
         vehicleId: "",
@@ -81,19 +79,6 @@ export default function ChallanManagement() {
       });
       fetchMyChallans();
     } catch (err: unknown) {
-      console.error("Full error:", err);
-      if (err instanceof Error) {
-        console.error("Error message:", err.message);
-        console.error("Error stack:", err.stack);
-      }
-      // Try to get error response data
-      if (err instanceof Error && "response" in err) {
-        const axiosErr = err as {
-          response?: { data?: unknown; status?: number };
-        };
-        console.error("Response data:", axiosErr.response?.data);
-        console.error("Status:", axiosErr.response?.status);
-      }
       const msg =
         err instanceof Error ? err.message : "Failed to create challan";
       alert(msg);
@@ -132,13 +117,13 @@ export default function ChallanManagement() {
   const getStatusBadge = (status: string, paymentStatus: string) => {
     if (status === "cancelled") return "Cancelled";
     if (status === "disputed") return "Disputed";
-    if (paymentStatus === "paid") return "Paid ✓";
+    if (paymentStatus === "paid") return "Paid";
     if (paymentStatus === "partial") return "Partial";
     return "Pending";
   };
 
   const getStatusClass = (status: string, paymentStatus: string) => {
-    if (status === "cancelled") return "role-police";
+    if (status === "cancelled") return "role-reject";
     if (status === "disputed") return "role-owner";
     if (paymentStatus === "paid") return "role-rto";
     return "role-dealer";
@@ -352,14 +337,14 @@ export default function ChallanManagement() {
                       </small>
                     </td>
                     <td>
-                      {new Date(challan.violationDate).toLocaleDateString()}
+                      {formatDate(challan.violationDate)}
                     </td>
-                    <td>₹ {challan.fineAmount.toLocaleString()}</td>
+                    <td>₹ {formatMoney(challan.fineAmount)}</td>
                     <td>
                       <span
                         className={`role-badge ${getStatusClass(
                           challan.status,
-                          challan.paymentStatus
+                          challan.paymentStatus,
                         )}`}
                       >
                         {getStatusBadge(challan.status, challan.paymentStatus)}

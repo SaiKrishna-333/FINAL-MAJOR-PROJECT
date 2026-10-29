@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatDateTime } from "../lib/display";
 
 interface BiometricCaptureModalProps {
   isOpen: boolean;
@@ -206,12 +207,12 @@ export default function BiometricCaptureModal({
         >
           <div style={{ fontSize: "2rem", marginBottom: "8px" }}>
             {personRole === "dealer"
-              ? "🏪"
+              ? ""
               : personRole === "owner"
-                ? "👤"
+                ? ""
                 : personRole === "rto"
-                  ? "🏛️"
-                  : "👮"}
+                  ? ""
+                  : ""}
           </div>
           <div
             style={{
@@ -262,7 +263,7 @@ export default function BiometricCaptureModal({
                   animation: "pulse 1.5s infinite",
                 }}
               >
-                <span style={{ fontSize: "5rem" }}>👆</span>
+                <span style={{ fontSize: "2rem", fontWeight: 700 }}>SCAN</span>
               </div>
               <p
                 style={{
@@ -501,16 +502,19 @@ export default function BiometricCaptureModal({
                   width: "100px",
                   height: "100px",
                   margin: "0 auto 20px",
-                  background: "linear-gradient(135deg, #11998e, #38ef7d)",
+                  background: "linear-gradient(135deg, #0e7c3b, #14854a)",
                   borderRadius: "50%",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: "3.5rem",
+                  fontSize: "1.5rem",
+                  fontWeight: "bold",
+                  letterSpacing: "1px",
+                  color: "#ffffff",
                   animation: "scaleIn 0.5s ease-out",
                 }}
               >
-                ✓
+                OK
               </div>
               <p
                 style={{
@@ -520,7 +524,7 @@ export default function BiometricCaptureModal({
                   margin: "10px 0",
                 }}
               >
-                Biometric Captured Successfully!
+                Biometric Captured Successfully
               </p>
               <div
                 style={{
@@ -556,7 +560,7 @@ export default function BiometricCaptureModal({
                     margin: "5px 0",
                   }}
                 >
-                  <strong>Timestamp:</strong> {new Date().toLocaleString()}
+                  <strong>Timestamp:</strong> {formatDateTime(new Date())}
                 </p>
               </div>
             </>
@@ -569,7 +573,7 @@ export default function BiometricCaptureModal({
                   width: "100px",
                   height: "100px",
                   margin: "0 auto 20px",
-                  background: "linear-gradient(135deg, #eb3349, #f45c43)",
+                  background: "linear-gradient(135deg, #b91c1c, #d33b2f)",
                   borderRadius: "50%",
                   display: "flex",
                   alignItems: "center",
@@ -578,9 +582,7 @@ export default function BiometricCaptureModal({
                   color: "white",
                   animation: "shake 0.5s ease-in-out",
                 }}
-              >
-                ✕
-              </div>
+              ></div>
               <p
                 style={{
                   color: "#eb3349",
@@ -624,11 +626,10 @@ export default function BiometricCaptureModal({
             fontSize: "0.9rem",
           }}
         >
-          {captureState === "positioning" && "🔵 Awaiting biometric input..."}
-          {captureState === "scanning" && "🟡 Capturing biometric data..."}
-          {captureState === "processing" &&
-            "🟠 Processing biometric template..."}
-          {captureState === "success" && "🟢 Biometric enrolled successfully"}
+          {captureState === "positioning" && "Awaiting biometric input..."}
+          {captureState === "scanning" && "Capturing biometric data..."}
+          {captureState === "processing" && "Processing biometric template..."}
+          {captureState === "success" && "Biometric enrolled successfully"}
         </div>
       </div>
 

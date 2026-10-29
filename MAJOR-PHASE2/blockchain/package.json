@@ -1,16 +1,22 @@
 {
-  "name": "blockchain",
+  "name": "biochain-vehicle-registry-contract",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
+  "type": "module",
+  "description": "Hardhat project for the VehicleRegistry contract deployed on Polygon Amoy.",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat compile",
     "deploy": "npx hardhat run scripts/deploy.js --network polygonAmoy"
   },
-  "keywords": [],
+  "keywords": [
+    "rto",
+    "vehicle-registry",
+    "polygon-amoy",
+    "hardhat"
+  ],
   "author": "",
   "license": "ISC",
-  "description": "",
-  "type": "module",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
     "hardhat": "^2.28.6"

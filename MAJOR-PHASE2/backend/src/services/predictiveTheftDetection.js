@@ -7,6 +7,7 @@ import { User } from "../models/User.js";
 import { TheftReport } from "../models/TheftReport.js";
 import { Request } from "../models/Request.js";
 import { autoFreezeVehicle, reportVehicleStolen } from "./vehicleLifecycleService.js";
+import { createNotification, createRoleNotification } from "./notificationService.js";
 
 /**
  * Theft risk indicators and weights
@@ -228,12 +229,14 @@ export const executeAutoFreeze = async (vehicleId, reason, authorizedBy = "syste
         const freezeResult = await autoFreezeVehicle(vehicleId, reason, authorizedBy);
 
         // Notify relevant parties
-        await notifyAuthoritiesOfAutoFreeze(vehicle, reason);
+        const notifications = await notifyAuthoritiesOfAutoFreeze(vehicle, reason);
 
         return {
             success: true,
             freezeResult,
-            notificationSent: true,
+            // Say how many people were actually told, not just that someone was
+            notifiedSent: notifications.delivered,
+            notificationSent: notifications.delivered > 0,
             timestamp: new Date().toISOString()
         };
     } catch (error) {
@@ -244,25 +247,48 @@ export const executeAutoFreeze = async (vehicleId, reason, authorizedBy = "syste
 
 /**
  * Notify authorities of auto-freeze
+ * Writes real notifications into the bells of every police officer and RTO
+ * officer plus the owner, and reports how many were delivered. A freeze that
+ * nobody was told about is not a control.
  */
 const notifyAuthoritiesOfAutoFreeze = async (vehicle, reason) => {
     try {
-        // In production, this would:
-        // 1. Send notifications to police
-        // 2. Alert RTO officers
-        // 3. Notify vehicle owner
-        // 4. Update blockchain with freeze event
+        const title = `Vehicle frozen by theft-risk engine: ${vehicle.regNumber}`;
+        const message = `${vehicle.regNumber} (${vehicle.make} ${vehicle.model}) was frozen automatically. Reason: ${reason}. Transfers and document operations are blocked until an officer reviews it.`;
 
-        console.log(`\n🚨 AUTO-FREEZE NOTIFICATION:`);
-        console.log(`Vehicle: ${vehicle.regNumber}`);
-        console.log(`Reason: ${reason}`);
-        console.log(`Timestamp: ${new Date().toISOString()}`);
-        console.log(`Actions: Notifying police, RTO, and owner\n`);
+        const [police, rto] = await Promise.all([
+            createRoleNotification({
+                type: "auto-freeze", title, message, role: "police",
+                relatedVehicle: vehicle._id, priority: "critical",
+                actionRequired: true, actionUrl: "/police-dashboard"
+            }),
+            createRoleNotification({
+                type: "auto-freeze", title, message, role: "rto",
+                relatedVehicle: vehicle._id, priority: "critical"
+            }),
+        ]);
 
-        return { success: true };
+        let ownerNotified = 0;
+        if (vehicle.currentOwner) {
+            await createNotification({
+                type: "auto-freeze",
+                title: `Your vehicle ${vehicle.regNumber} was frozen`,
+                message,
+                recipient: vehicle.currentOwner,
+                recipientRole: "owner",
+                relatedVehicle: vehicle._id,
+                priority: "critical",
+                actionRequired: true
+            });
+            ownerNotified = 1;
+        }
+
+        const delivered = police.length + rto.length + ownerNotified;
+        console.log(`Auto-freeze of ${vehicle.regNumber} notified ${delivered} recipient(s)`);
+        return { success: delivered > 0, delivered };
     } catch (error) {
         console.error("Error notifying authorities:", error.message);
-        return { error: error.message };
+        return { success: false, delivered: 0, error: error.message };
     }
 };
 

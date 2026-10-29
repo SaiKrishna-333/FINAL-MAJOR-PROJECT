@@ -10,12 +10,12 @@ async function main() {
 
     // Check balance
     const balance = await ethers.provider.getBalance(deployer.address);
-    console.log("Account balance:", ethers.formatEther(balance), "MATIC");
+    console.log("Account balance:", ethers.formatEther(balance), "POL");
 
     if (balance === 0n) {
         throw new Error(
-            "❌ No MATIC found! Please get test tokens from the faucet first.\n" +
-            "Visit: https://faucet.polygon.technology/"
+            "No POL found in the deployer wallet. Get test tokens from the faucet first: " +
+            "https://faucet.polygon.technology/ (select Amoy) and fund the address from blockchain/.env"
         );
     }
 
@@ -26,13 +26,13 @@ async function main() {
     await vehicleRegistry.waitForDeployment();
 
     const contractAddress = await vehicleRegistry.getAddress();
-    console.log("\n✅ VehicleRegistry deployed to:", contractAddress);
-    console.log("\n📝 Next steps:");
+    console.log("\nVehicleRegistry deployed to:", contractAddress);
+    console.log("\nNext steps:");
     console.log("1. Copy this contract address");
     console.log("2. Update backend/.env with CONTRACT_ADDRESS=" + contractAddress);
     console.log("3. Restart your backend server\n");
 
-    console.log("🔍 View on Polygonscan:");
+    console.log("View on Polygonscan:");
     console.log("https://amoy.polygonscan.com/address/" + contractAddress);
 }
 

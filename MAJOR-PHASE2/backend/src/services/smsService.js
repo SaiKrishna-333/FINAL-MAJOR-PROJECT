@@ -42,7 +42,7 @@ export const sendSMS = async (to, message) => {
  * Send theft alert SMS
  */
 export const sendTheftAlertSMS = async (to, vehicle, theftReport) => {
-    const message = `🚨 BIOCHAIN RTO ALERT: Vehicle ${vehicle.regNumber} (${vehicle.make} ${vehicle.model}) reported STOLEN. FIR: ${theftReport.firNumber}. Do NOT process transfers. Incident: ${theftReport.incidentLocation}`;
+    const message = `BIOCHAIN RTO ALERT: Vehicle ${vehicle.regNumber} (${vehicle.make} ${vehicle.model}) reported STOLEN. FIR: ${theftReport.firNumber}. Do NOT process transfers. Incident: ${theftReport.incidentLocation}`;
 
     return sendSMS(to, message);
 };
@@ -52,7 +52,7 @@ export const sendTheftAlertSMS = async (to, vehicle, theftReport) => {
  */
 export const sendApprovalSMS = async (to, requestType, vehicle) => {
     const type = requestType === "newRegistration" ? "Registration" : "Transfer";
-    const message = `✅ BioChain RTO: Your ${type} for ${vehicle.regNumber} (${vehicle.make} ${vehicle.model}) has been APPROVED. Digital RC is now available.`;
+    const message = `BioChain RTO: Your ${type} for ${vehicle.regNumber} (${vehicle.make} ${vehicle.model}) has been APPROVED. Digital RC is now available.`;
 
     return sendSMS(to, message);
 };
@@ -62,7 +62,7 @@ export const sendApprovalSMS = async (to, requestType, vehicle) => {
  */
 export const sendRejectionSMS = async (to, requestType) => {
     const type = requestType === "newRegistration" ? "Registration" : "Transfer";
-    const message = `❌ BioChain RTO: Your ${type} request has been REJECTED. Please contact RTO for details.`;
+    const message = `BioChain RTO: Your ${type} request has been REJECTED. Please contact RTO for details.`;
 
     return sendSMS(to, message);
 };
@@ -80,7 +80,7 @@ export const sendOTP = async (to, otp) => {
  * Send vehicle recovery SMS
  */
 export const sendRecoverySMS = async (to, vehicle) => {
-    const message = `✅ BioChain RTO: Good news! Your vehicle ${vehicle.regNumber} has been RECOVERED. Status updated to ACTIVE.`;
+    const message = `BioChain RTO: Good news! Your vehicle ${vehicle.regNumber} has been RECOVERED. Status updated to ACTIVE.`;
 
     return sendSMS(to, message);
 };

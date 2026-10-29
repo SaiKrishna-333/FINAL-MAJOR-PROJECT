@@ -31,7 +31,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             joinRoleRoom(storedUser.role);
           }
         } catch (error) {
-          console.error("Failed to parse user from localStorage:", error);
+          // Unreadable stored user: start signed out rather than half-signed-in.
+          console.warn("Stored user could not be read, signing out:", error);
           localStorage.removeItem("user");
           localStorage.removeItem("token");
         }

@@ -53,7 +53,7 @@ export default function InvoiceView() {
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [verifyRemarks, setVerifyRemarks] = useState("");
   const [verifyAction, setVerifyAction] = useState<"verified" | "rejected">(
-    "verified"
+    "verified",
   );
 
   const fetchInvoice = useCallback(async () => {
@@ -66,7 +66,6 @@ export default function InvoiceView() {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to load invoice";
       setError(errorMessage);
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -82,7 +81,7 @@ export default function InvoiceView() {
         status: verifyAction,
         remarks: verifyRemarks,
       });
-      alert(`Invoice ${verifyAction} successfully!`);
+      alert(`Invoice ${verifyAction} successfully.`);
       setShowVerifyModal(false);
       fetchInvoice();
     } catch (err: unknown) {
@@ -130,7 +129,7 @@ export default function InvoiceView() {
               {user?.role?.toUpperCase()}
             </span>
             <button className="btn btn-secondary" onClick={() => navigate(-1)}>
-              ← Back
+              Back
             </button>
             <button
               className="btn btn-danger"
@@ -193,8 +192,8 @@ export default function InvoiceView() {
                 onClick={handleVerify}
               >
                 {verifyAction === "verified"
-                  ? "✓ Confirm Verification"
-                  : "✕ Confirm Rejection"}
+                  ? "Confirm Verification"
+                  : "Confirm Rejection"}
               </button>
               <button
                 className="btn btn-secondary"

@@ -18,6 +18,10 @@ const ownershipHistorySchema = new mongoose.Schema(
     { timestamps: true }
 );
 
+// Every vehicle history page, ownership Reputation score and passport download
+// reads this collection by vehicle, so it needs an index for that lookup.
+ownershipHistorySchema.index({ vehicle: 1, timestamp: -1 });
+
 export const OwnershipHistory = mongoose.model(
     "OwnershipHistory",
     ownershipHistorySchema

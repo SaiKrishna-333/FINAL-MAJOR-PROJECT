@@ -12,7 +12,9 @@ const createTransporter = () => {
     const pass = process.env.EMAIL_PASS || "";
 
     if (!user || !pass) {
-        console.warn("Email credentials not configured. Emails will be logged but not sent.");
+        // A deliberate demo state, not a fault - stated once as a fact so it is
+        // not read as an error in the startup log.
+        console.log("[email] No SMTP credentials configured: each message is recorded in this log instead of being sent");
         return null;
     }
 
@@ -67,7 +69,7 @@ export const sendTheftAlertEmail = async (to, vehicle, theftReport) => {
     const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #dc2626; color: white; padding: 20px; text-align: center;">
-                <h1>🚨 THEFT ALERT</h1>
+                <h1>THEFT ALERT</h1>
             </div>
             <div style="padding: 20px; border: 1px solid #e5e7eb;">
                 <h2>Vehicle Theft Reported</h2>
@@ -79,7 +81,7 @@ export const sendTheftAlertEmail = async (to, vehicle, theftReport) => {
                 <p><strong>Date:</strong> ${new Date(theftReport.incidentDate).toLocaleDateString()}</p>
                 
                 <div style="background: #fef3c7; padding: 15px; margin: 20px 0; border-left: 4px solid #f59e0b;">
-                    <p style="margin: 0;"><strong>⚠️ ACTION REQUIRED:</strong> Do not process any transfers for this vehicle.</p>
+                    <p style="margin: 0;"><strong>ACTION REQUIRED:</strong> Do not process any transfers for this vehicle.</p>
                 </div>
                 
                 <p style="color: #6b7280; font-size: 12px;">
@@ -106,7 +108,7 @@ export const sendApprovalEmail = async (to, requestType, vehicle, txHash) => {
     const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #059669; color: white; padding: 20px; text-align: center;">
-                <h1>✅ APPROVED</h1>
+                <h1>APPROVED</h1>
             </div>
             <div style="padding: 20px; border: 1px solid #e5e7eb;">
                 <h2>${isNewRegistration ? 'Vehicle Registration Approved' : 'Ownership Transfer Approved'}</h2>
@@ -139,7 +141,7 @@ export const sendRejectionEmail = async (to, requestType, remarks = "") => {
     const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #dc2626; color: white; padding: 20px; text-align: center;">
-                <h1>❌ REJECTED</h1>
+                <h1>REJECTED</h1>
             </div>
             <div style="padding: 20px; border: 1px solid #e5e7eb;">
                 <h2>Request Rejected</h2>

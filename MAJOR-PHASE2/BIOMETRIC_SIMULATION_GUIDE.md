@@ -323,14 +323,14 @@ In `BiometricCaptureModal.tsx`:
 
 ## Key Benefits
 
-✅ **Realistic Demo Experience**: Looks like real biometric scanner
-✅ **User Education**: Shows users how biometric verification works
-✅ **Role-Based**: Different UI for dealer, owner, RTO, police
-✅ **Multi-Step Flows**: Supports complex verification scenarios
-✅ **Error Handling**: Retry mechanism for failed captures
-✅ **Quality Scoring**: Shows biometric quality percentage
-✅ **Blockchain Ready**: Template IDs can be hashed and stored on-chain
-✅ **Production Path**: Easy to swap simulation for real STK
+  **Realistic Demo Experience**: Looks like real biometric scanner
+  **User Education**: Shows users how biometric verification works
+  **Role-Based**: Different UI for dealer, owner, RTO, police
+  **Multi-Step Flows**: Supports complex verification scenarios
+  **Error Handling**: Retry mechanism for failed captures
+  **Quality Scoring**: Shows biometric quality percentage
+  **Blockchain Ready**: Template IDs can be hashed and stored on-chain
+  **Production Path**: Easy to swap simulation for real STK
 
 ---
 

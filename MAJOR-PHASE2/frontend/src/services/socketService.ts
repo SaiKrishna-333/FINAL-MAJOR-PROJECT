@@ -1,32 +1,38 @@
 import { io, Socket } from "socket.io-client";
 
+const SOCKET_ORIGIN = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 let socket: Socket | null = null;
+let activeToken: string | null = null;
 
 export const initializeSocket = (token: string) => {
+  // React runs effects twice in development and the auth context re-runs on
+  // every token change. Tearing down a socket that is still handshaking is what
+  // makes the browser log "WebSocket is closed before the connection is
+  // established", so an identical live connection is reused instead.
+  if (socket && activeToken === token) return socket;
   if (socket) {
-    socket.disconnect();
+    socket.removeAllListeners();
+    socket.close();
   }
 
-  socket = io("http://localhost:5000", {
+  socket = io(SOCKET_ORIGIN, {
     auth: {
       token,
     },
-    transports: ["websocket", "polling"],
+    // Limited retries: a backend that is genuinely down stops logging instead of
+    // hammering the socket endpoint forever.
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
     withCredentials: true,
   });
 
-  socket.on("connect", () => {
-    console.log("Socket connected:", socket?.id);
-  });
-
-  socket.on("disconnect", () => {
-    console.log("Socket disconnected");
-  });
-
   socket.on("connect_error", (error: Error) => {
-    console.error("Socket connection error:", error);
+    console.warn("Live updates unavailable:", error.message);
   });
 
+  activeToken = token;
   return socket;
 };
 
@@ -51,8 +57,10 @@ export const joinRoleRoom = (role: string) => {
 
 export const disconnectSocket = () => {
   if (socket) {
-    socket.disconnect();
+    socket.removeAllListeners();
+    socket.close();
     socket = null;
+    activeToken = null;
   }
 };
 

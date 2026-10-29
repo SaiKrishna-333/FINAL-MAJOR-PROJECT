@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import { formatDate, maskAadhaar } from "../lib/display";
 
 interface InvoiceData {
   invoiceNumber: string;
@@ -82,31 +83,33 @@ export default function InvoiceTemplate({
       <html>
         <head>
           <title>Invoice ${data.invoiceNumber}</title>
+          <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Noto+Serif:wght@700&display=swap" rel="stylesheet">
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: Arial, sans-serif; padding: 20px; background: #fff; color: #000; }
+            body { font-family: 'Atkinson Hyperlegible', Arial, sans-serif; padding: 20px; background: #fff; color: #000; }
+            h1, h2, h3 { font-family: 'Noto Serif', Georgia, serif; }
             .invoice-container { max-width: 800px; margin: 0 auto; }
-            .invoice-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #00D4FF; padding-bottom: 20px; margin-bottom: 20px; }
-            .logo-section h1 { color: #0066cc; font-size: 24px; margin-bottom: 5px; }
+            .invoice-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1e5aa8; padding-bottom: 20px; margin-bottom: 20px; }
+            .logo-section h1 { color: #1e5aa8; font-size: 24px; margin-bottom: 5px; }
             .invoice-title { text-align: right; }
             .invoice-title h2 { color: #333; font-size: 28px; }
             .invoice-title .invoice-no { color: #666; margin-top: 5px; }
             .parties-section { display: flex; justify-content: space-between; margin-bottom: 30px; }
-            .party-box { width: 48%; background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #00D4FF; }
-            .party-box h3 { color: #0066cc; margin-bottom: 10px; font-size: 14px; text-transform: uppercase; }
+            .party-box { width: 48%; background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #1e5aa8; }
+            .party-box h3 { color: #1e5aa8; margin-bottom: 10px; font-size: 14px; text-transform: uppercase; }
             .party-box p { margin: 5px 0; font-size: 13px; color: #333; }
             .party-box .name { font-weight: bold; font-size: 15px; color: #000; }
             .vehicle-section { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-            .vehicle-section h3 { color: #0066cc; margin-bottom: 15px; }
+            .vehicle-section h3 { color: #1e5aa8; margin-bottom: 15px; }
             .vehicle-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
             .vehicle-item { padding: 8px; background: #fff; border-radius: 4px; }
             .vehicle-item label { font-size: 11px; color: #666; text-transform: uppercase; }
             .vehicle-item .value { font-weight: bold; color: #000; }
             .pricing-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            .pricing-table th { background: #0066cc; color: #fff; padding: 12px; text-align: left; }
+            .pricing-table th { background: #1e5aa8; color: #fff; padding: 12px; text-align: left; }
             .pricing-table td { padding: 10px 12px; border-bottom: 1px solid #eee; }
             .pricing-table .total-row { background: #f8f9fa; font-weight: bold; }
-            .pricing-table .grand-total { background: #00D4FF; color: #000; font-size: 18px; }
+            .pricing-table .grand-total { background: #1e5aa8; color: #fff; font-size: 18px; }
             .footer-section { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 20px; border-top: 2px solid #eee; }
             .signature-box { text-align: center; width: 200px; }
             .signature-box .stamp { width: 100px; height: 100px; border: 2px dashed #ccc; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; color: #999; }
@@ -139,7 +142,7 @@ export default function InvoiceTemplate({
         color: "#856404",
         text: "Pending Verification",
       },
-      verified: { bg: "#D4EDDA", color: "#155724", text: "Verified ✓" },
+      verified: { bg: "#D4EDDA", color: "#155724", text: "Verified" },
       rejected: { bg: "#F8D7DA", color: "#721C24", text: "Rejected" },
     };
     const status = statusColors[data.verificationStatus];
@@ -161,15 +164,15 @@ export default function InvoiceTemplate({
           <div className="status-section">{getStatusBadge()}</div>
           <div className="button-section">
             <button className="btn btn-primary" onClick={handlePrint}>
-              🖨️ Print Invoice
+              Print Invoice
             </button>
             {userRole === "rto" && data.verificationStatus === "pending" && (
               <>
                 <button className="btn btn-success" onClick={onVerify}>
-                  ✓ Verify Invoice
+                  Verify Invoice
                 </button>
                 <button className="btn btn-danger" onClick={onReject}>
-                  ✕ Reject
+                  Reject
                 </button>
               </>
             )}
@@ -183,7 +186,7 @@ export default function InvoiceTemplate({
           {/* Header */}
           <div className="invoice-header">
             <div className="logo-section">
-              <h1>🚗 {data.dealerBusinessName || data.dealerName}</h1>
+              <h1>{data.dealerBusinessName || data.dealerName}</h1>
               <p className="tagline">Authorized Automobile Dealer</p>
               <p className="dealer-lic">License No: {data.dealerLicense}</p>
             </div>
@@ -193,7 +196,7 @@ export default function InvoiceTemplate({
                 Invoice No: <strong>{data.invoiceNumber}</strong>
               </p>
               <p className="invoice-date">
-                Date: {new Date(data.invoiceDate).toLocaleDateString("en-IN")}
+                Date: {formatDate(data.invoiceDate)}
               </p>
             </div>
           </div>
@@ -223,18 +226,18 @@ export default function InvoiceTemplate({
               <p>
                 <strong>Aadhaar:</strong>{" "}
                 {data.buyerAadhaar
-                  ? `XXXX-XXXX-${data.buyerAadhaar.slice(-4)}`
-                  : "N/A"}
+                  ? maskAadhaar(data.buyerAadhaar)
+                  : "Not recorded"}
               </p>
               <p>
-                <strong>DL No:</strong> {data.buyerDL || "N/A"}
+                <strong>DL No:</strong> {data.buyerDL || "Not recorded"}
               </p>
             </div>
           </div>
 
           {/* Vehicle Details */}
           <div className="vehicle-section">
-            <h3>🚙 Vehicle Details</h3>
+            <h3>Vehicle Details</h3>
             <div className="vehicle-grid">
               <div className="vehicle-item">
                 <label>Make</label>
@@ -333,7 +336,8 @@ export default function InvoiceTemplate({
               <strong>Payment Mode:</strong> {data.paymentMode}
             </p>
             <p>
-              <strong>Payment Status:</strong> {data.paymentStatus}
+              <strong>Payment Status:</strong>{" "}
+              {data.paymentStatus === "Paid" ? "Paid" : "Payment pending"}
             </p>
           </div>
 
@@ -344,13 +348,15 @@ export default function InvoiceTemplate({
                 {data.signatureHash ? (
                   <QRCodeSVG value={data.signatureHash} size={80} />
                 ) : (
-                  <span>Digital Signature</span>
+                  <span>No content hash</span>
                 )}
               </div>
               <p>
                 <strong>Dealer's Signature</strong>
               </p>
-              <p>Authorized Signatory</p>
+              <p style={{ fontSize: "10px" }}>
+                QR holds the SHA-256 content hash of this invoice
+              </p>
             </div>
 
             <div className="qr-section">
@@ -370,9 +376,18 @@ export default function InvoiceTemplate({
             <div className="signature-box">
               <div className="stamp">
                 {data.verificationStatus === "verified" ? (
-                  <span style={{ color: "#10B981", fontSize: "40px" }}>✓</span>
+                  <span
+                    style={{
+                      color: "#0e7c3b",
+                      fontSize: "20px",
+                      fontWeight: 700,
+                      letterSpacing: "1px",
+                    }}
+                  >
+                    VERIFIED
+                  </span>
                 ) : (
-                  <span>RTO Stamp</span>
+                  <span>Not verified</span>
                 )}
               </div>
               <p>
@@ -380,7 +395,7 @@ export default function InvoiceTemplate({
               </p>
               {data.verifiedAt && (
                 <p style={{ fontSize: "10px" }}>
-                  {new Date(data.verifiedAt).toLocaleDateString("en-IN")}
+                  {formatDate(data.verifiedAt)}
                 </p>
               )}
             </div>
@@ -399,7 +414,8 @@ export default function InvoiceTemplate({
                 applicable taxes.
               </li>
               <li>
-                Insurance is valid for 1 year from the date of registration.
+                Insurance details are as declared by the dealer; the policy
+                document issued by the insurer sets the actual coverage.
               </li>
               <li>
                 RC (Registration Certificate) will be issued after RTO
